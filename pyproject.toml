@@ -1,0 +1,66 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "simcore-ai"
+version = "0.1.0"
+description = "Open-source social simulation engine powered by LLM agents"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [
+    { name = "Elison Frankowski", email = "elisonfrankowski@gmail.com" },
+]
+keywords = ["simulation", "ai", "agents", "llm", "social-simulation", "multi-agent"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "litellm>=1.40.0",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+    "click>=8.0",
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+    "websockets>=12.0",
+    "aiosqlite>=0.20.0",
+    "jinja2>=3.1.0",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.4.0",
+]
+
+[project.scripts]
+simcore = "simcore.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/elisonfrank/simcore"
+Repository = "https://github.com/elisonfrank/simcore"
+Issues = "https://github.com/elisonfrank/simcore/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["simcore"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

@@ -1,0 +1,170 @@
+simulation:
+  name: "Local Marketplace"
+  description: "A small town marketplace with shops, consumers, and an incoming competitor"
+  time_step: "1 hour"
+  duration: "3 days"
+  seed: 42
+
+llm:
+  model: "gpt-4o-mini"
+  reflection_model: "gpt-4o-mini"
+  cache: true
+  temperature: 0.7
+
+environment:
+  type: grid
+  size: [20, 20]
+  locations:
+    - name: "Town Square"
+      type: commercial
+      position: [10, 10]
+      capacity: 30
+      properties:
+        description: "The central marketplace where most commerce happens"
+
+    - name: "Electronics District"
+      type: commercial
+      position: [8, 12]
+      capacity: 15
+      properties:
+        description: "A cluster of electronics and gadget shops"
+        rent_cost: 3000
+
+    - name: "Food Market"
+      type: commercial
+      position: [12, 8]
+      capacity: 20
+      properties:
+        description: "Fresh produce and food stalls"
+        rent_cost: 1500
+
+    - name: "Residential North"
+      type: residential
+      position: [5, 3]
+      capacity: 50
+      properties:
+        description: "Middle-class residential area"
+
+    - name: "Residential South"
+      type: residential
+      position: [15, 17]
+      capacity: 50
+      properties:
+        description: "Working-class residential area"
+
+    - name: "Park"
+      type: leisure
+      position: [10, 5]
+      capacity: 40
+      properties:
+        description: "Community park where people relax and socialize"
+
+agents:
+  - name: "Carlos"
+    age: 45
+    profession: "electronics shop owner"
+    personality:
+      openness: 0.4
+      conscientiousness: 0.9
+      extraversion: 0.5
+      agreeableness: 0.4
+      neuroticism: 0.3
+    goals:
+      - "maximize monthly profit from electronics sales"
+      - "build a loyal customer base"
+      - "keep prices competitive"
+    starting_location: "Electronics District"
+    backstory: "Carlos has owned his electronics shop for 15 years. He knows every customer by name and prides himself on honest pricing. He's worried about big chains moving in."
+    resources:
+      money: 50000
+      inventory: 120
+
+  - name: "Marina"
+    age: 32
+    profession: "food stall owner"
+    personality:
+      openness: 0.7
+      conscientiousness: 0.8
+      extraversion: 0.9
+      agreeableness: 0.8
+      neuroticism: 0.2
+    goals:
+      - "grow her organic food business"
+      - "become the most popular food vendor"
+      - "build partnerships with local farmers"
+    starting_location: "Food Market"
+    backstory: "Marina left a corporate job to start an organic food stall. She's energetic, loves talking to customers, and always experimenting with new products."
+    resources:
+      money: 15000
+      inventory: 80
+
+  - name: "Roberto"
+    age: 55
+    profession: "retired teacher"
+    personality:
+      openness: 0.8
+      conscientiousness: 0.6
+      extraversion: 0.7
+      agreeableness: 0.9
+      neuroticism: 0.4
+    goals:
+      - "stay socially active"
+      - "find good deals on a fixed income"
+      - "help younger neighbors"
+    starting_location: "Residential North"
+    backstory: "Roberto retired last year after 30 years of teaching. He spends his days visiting the market, chatting with shopkeepers, and mentoring young entrepreneurs."
+    resources:
+      money: 8000
+
+  - name: "Lucia"
+    age: 24
+    profession: "university student and part-time barista"
+    personality:
+      openness: 0.9
+      conscientiousness: 0.5
+      extraversion: 0.8
+      agreeableness: 0.6
+      neuroticism: 0.6
+    goals:
+      - "save money for a new laptop"
+      - "find affordable food"
+      - "network with local business owners"
+    starting_location: "Residential South"
+    backstory: "Lucia is studying business administration while working part-time. She's always looking for deals and dreams of opening her own coffee shop someday."
+    resources:
+      money: 2000
+
+  - name: "Pedro"
+    age: 38
+    profession: "delivery driver and small trader"
+    personality:
+      openness: 0.5
+      conscientiousness: 0.7
+      extraversion: 0.6
+      agreeableness: 0.5
+      neuroticism: 0.5
+    goals:
+      - "increase his income through side trading"
+      - "build connections across the market"
+      - "find underpriced goods to resell"
+    starting_location: "Town Square"
+    backstory: "Pedro drives deliveries during the day but always has an eye out for trading opportunities. He knows where every deal is and who needs what."
+    resources:
+      money: 5000
+      inventory: 30
+
+events:
+  scheduled:
+    - tick: 24
+      type: "market_change"
+      description: "A large discount chain announces it will open a store in the Electronics District next week. Rumors spread through the market."
+      effects:
+        market_anxiety: true
+
+    - tick: 48
+      type: "weather"
+      description: "Heavy rain forces outdoor vendors to close temporarily. Only indoor shops remain open."
+      effects:
+        outdoor_closed: true
+
+  injectable: true

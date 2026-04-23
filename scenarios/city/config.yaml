@@ -1,0 +1,203 @@
+simulation:
+  name: "Urban Life"
+  description: "A day in a small city — residents commute, work, socialize, and navigate urban dynamics"
+  time_step: "1 hour"
+  duration: "3 days"
+  seed: 99
+
+llm:
+  model: "gpt-4o-mini"
+  reflection_model: "gpt-4o-mini"
+  cache: true
+  temperature: 0.7
+
+environment:
+  type: grid
+  size: [24, 24]
+  locations:
+    - name: "City Hall"
+      type: government
+      position: [12, 12]
+      capacity: 40
+      properties:
+        description: "The administrative center where public decisions are made"
+
+    - name: "Downtown Office"
+      type: commercial
+      position: [14, 10]
+      capacity: 30
+      properties:
+        description: "Modern office building housing tech startups and law firms"
+
+    - name: "University Campus"
+      type: education
+      position: [6, 6]
+      capacity: 50
+      properties:
+        description: "The local university with classrooms, labs, and a library"
+
+    - name: "Hospital"
+      type: healthcare
+      position: [18, 6]
+      capacity: 25
+      properties:
+        description: "Community hospital providing medical services"
+
+    - name: "Central Park"
+      type: leisure
+      position: [12, 4]
+      capacity: 60
+      properties:
+        description: "Large green space where residents walk, exercise, and relax"
+
+    - name: "Cafe District"
+      type: commercial
+      position: [8, 14]
+      capacity: 20
+      properties:
+        description: "Trendy street lined with coffee shops and small restaurants"
+
+    - name: "Suburbs East"
+      type: residential
+      position: [20, 16]
+      capacity: 50
+      properties:
+        description: "Quiet suburban neighborhood with families"
+
+    - name: "Apartment Complex"
+      type: residential
+      position: [4, 18]
+      capacity: 50
+      properties:
+        description: "Affordable apartment buildings popular with young professionals"
+
+agents:
+  - name: "Sofia"
+    age: 34
+    profession: "city council member"
+    personality:
+      openness: 0.7
+      conscientiousness: 0.9
+      extraversion: 0.8
+      agreeableness: 0.6
+      neuroticism: 0.3
+    goals:
+      - "pass the new public transit proposal"
+      - "improve community engagement with city projects"
+      - "get re-elected next year"
+    starting_location: "City Hall"
+    backstory: "Sofia was a community organizer before entering politics. She genuinely cares about the city but is learning that good intentions aren't enough — you need votes and allies."
+    resources:
+      money: 40000
+
+  - name: "David"
+    age: 29
+    profession: "software engineer"
+    personality:
+      openness: 0.8
+      conscientiousness: 0.6
+      extraversion: 0.3
+      agreeableness: 0.5
+      neuroticism: 0.7
+    goals:
+      - "ship the product before the deadline"
+      - "find a better work-life balance"
+      - "meet people outside of work"
+    starting_location: "Downtown Office"
+    backstory: "David moved to the city six months ago for a startup job. He's talented but lonely, spending most evenings coding alone. He wants to build a social life but doesn't know where to start."
+    resources:
+      money: 25000
+
+  - name: "Elena"
+    age: 52
+    profession: "hospital director"
+    personality:
+      openness: 0.5
+      conscientiousness: 0.95
+      extraversion: 0.6
+      agreeableness: 0.7
+      neuroticism: 0.4
+    goals:
+      - "reduce emergency room wait times"
+      - "secure funding for the new wing"
+      - "retain experienced nursing staff"
+    starting_location: "Hospital"
+    backstory: "Elena has run the hospital for 8 years. Budget cuts are making her job harder every year, but she refuses to compromise on patient care."
+    resources:
+      money: 60000
+
+  - name: "Marcus"
+    age: 22
+    profession: "university student and activist"
+    personality:
+      openness: 0.95
+      conscientiousness: 0.4
+      extraversion: 0.9
+      agreeableness: 0.5
+      neuroticism: 0.6
+    goals:
+      - "organize a protest about housing costs"
+      - "pass his final exams"
+      - "convince the council to act on rent control"
+    starting_location: "University Campus"
+    backstory: "Marcus is passionate about social justice and spends as much time organizing protests as studying. His grades are slipping but he believes the cause is worth it."
+    resources:
+      money: 1500
+
+  - name: "Clara"
+    age: 41
+    profession: "cafe owner"
+    personality:
+      openness: 0.6
+      conscientiousness: 0.8
+      extraversion: 0.85
+      agreeableness: 0.9
+      neuroticism: 0.2
+    goals:
+      - "keep the cafe profitable despite rising rent"
+      - "create a community gathering space"
+      - "expand to a second location"
+    starting_location: "Cafe District"
+    backstory: "Clara's cafe is the unofficial town hall — everyone passes through. She knows all the gossip and connects people who should meet each other."
+    resources:
+      money: 30000
+
+  - name: "James"
+    age: 67
+    profession: "retired journalist"
+    personality:
+      openness: 0.8
+      conscientiousness: 0.7
+      extraversion: 0.7
+      agreeableness: 0.4
+      neuroticism: 0.3
+    goals:
+      - "write a book about the city's history"
+      - "hold the council accountable"
+      - "stay sharp and socially connected"
+    starting_location: "Central Park"
+    backstory: "James spent 40 years covering local politics. Now retired, he writes an independent blog that the council both fears and respects. He has dirt on everyone."
+    resources:
+      money: 35000
+
+events:
+  scheduled:
+    - tick: 18
+      type: "social_unrest"
+      description: "University students stage a protest at City Hall demanding rent control. Traffic is disrupted and tensions rise."
+      effects:
+        protest_active: true
+
+    - tick: 36
+      type: "infrastructure"
+      description: "A water main breaks near the Hospital, causing disruptions. Emergency services are redirected."
+      effects:
+        hospital_disrupted: true
+
+    - tick: 54
+      type: "political"
+      description: "A leaked document reveals the transit proposal includes demolishing part of the Cafe District. Public outrage follows."
+      effects:
+        transit_controversy: true
+
+  injectable: true

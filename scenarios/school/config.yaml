@@ -1,0 +1,171 @@
+simulation:
+  name: "High School"
+  description: "Social dynamics in a high school — cliques, friendships, rivalries, and the pressure to fit in"
+  time_step: "1 hour"
+  duration: "3 days"
+  seed: 123
+
+llm:
+  model: "gpt-4o-mini"
+  reflection_model: "gpt-4o-mini"
+  cache: true
+  temperature: 0.8
+
+environment:
+  type: grid
+  size: [16, 16]
+  locations:
+    - name: "Main Hallway"
+      type: social
+      position: [8, 8]
+      capacity: 40
+      properties:
+        description: "The central corridor where everyone passes between classes"
+
+    - name: "Cafeteria"
+      type: social
+      position: [12, 12]
+      capacity: 50
+      properties:
+        description: "Lunchroom — where social hierarchies are most visible"
+
+    - name: "Library"
+      type: education
+      position: [4, 4]
+      capacity: 20
+      properties:
+        description: "Quiet study space, refuge for introverts"
+
+    - name: "Sports Field"
+      type: recreation
+      position: [14, 4]
+      capacity: 30
+      properties:
+        description: "Football field and track — the athletes' territory"
+
+    - name: "Art Room"
+      type: education
+      position: [3, 12]
+      capacity: 15
+      properties:
+        description: "Creative space with paint-stained tables and indie music"
+
+    - name: "Principal's Office"
+      type: administrative
+      position: [8, 2]
+      capacity: 10
+      properties:
+        description: "Where conflicts are resolved — or escalated"
+
+agents:
+  - name: "Zoe"
+    age: 17
+    profession: "student — popular group leader"
+    personality:
+      openness: 0.5
+      conscientiousness: 0.6
+      extraversion: 0.95
+      agreeableness: 0.4
+      neuroticism: 0.5
+    goals:
+      - "stay at the top of the social hierarchy"
+      - "organize the best prom ever"
+      - "keep her friend group loyal"
+    starting_location: "Main Hallway"
+    backstory: "Zoe is the center of attention and she knows it. She's charismatic but insecure underneath. Losing social status is her biggest fear."
+    resources:
+      money: 500
+
+  - name: "Leo"
+    age: 16
+    profession: "student — quiet artist"
+    personality:
+      openness: 0.95
+      conscientiousness: 0.5
+      extraversion: 0.2
+      agreeableness: 0.7
+      neuroticism: 0.8
+    goals:
+      - "finish his graphic novel"
+      - "get into art school"
+      - "find someone who understands him"
+    starting_location: "Art Room"
+    backstory: "Leo spends every free moment drawing. He's talented but invisible to most people. He has a crush on someone but is too shy to say anything."
+    resources:
+      money: 50
+
+  - name: "Maya"
+    age: 17
+    profession: "student — star athlete"
+    personality:
+      openness: 0.6
+      conscientiousness: 0.9
+      extraversion: 0.8
+      agreeableness: 0.6
+      neuroticism: 0.3
+    goals:
+      - "get a sports scholarship"
+      - "balance athletics and academics"
+      - "stand up to bullying she witnesses"
+    starting_location: "Sports Field"
+    backstory: "Maya is the school's best runner. She's respected but caught between the jock crowd and her own values. She sees bullying and stays quiet — and hates herself for it."
+    resources:
+      money: 200
+
+  - name: "Tyler"
+    age: 17
+    profession: "student — class clown and bully"
+    personality:
+      openness: 0.3
+      conscientiousness: 0.2
+      extraversion: 0.9
+      agreeableness: 0.2
+      neuroticism: 0.7
+    goals:
+      - "be the funniest person in the room"
+      - "avoid getting expelled"
+      - "hide his problems at home"
+    starting_location: "Cafeteria"
+    backstory: "Tyler makes everyone laugh but his humor has a mean edge. At home things are bad — school is the only place he feels in control. Making others feel small makes him feel big."
+    resources:
+      money: 30
+
+  - name: "Priya"
+    age: 16
+    profession: "student — overachiever"
+    personality:
+      openness: 0.7
+      conscientiousness: 0.98
+      extraversion: 0.4
+      agreeableness: 0.7
+      neuroticism: 0.8
+    goals:
+      - "maintain a 4.0 GPA"
+      - "win the science fair"
+      - "make a real friend, not just study partners"
+    starting_location: "Library"
+    backstory: "Priya's parents expect perfection and she delivers — but at a cost. She's exhausted, lonely, and starting to wonder if grades are all that matter."
+    resources:
+      money: 100
+
+events:
+  scheduled:
+    - tick: 12
+      type: "social_conflict"
+      description: "Tyler publicly mocks Leo's artwork in the cafeteria. Several students laugh. Maya witnesses it but says nothing."
+      effects:
+        bullying_incident: true
+
+    - tick: 36
+      type: "social_event"
+      description: "Prom committee meeting in the cafeteria. Zoe wants to exclude certain people. Tensions rise over the guest list."
+      effects:
+        prom_drama: true
+
+    - tick: 54
+      type: "revelation"
+      description: "Priya has a breakdown in the library — caught cheating on a test for the first time. The pressure finally cracked her."
+      effects:
+        academic_crisis: true
+
+  injectable: true

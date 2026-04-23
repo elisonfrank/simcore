@@ -1,0 +1,48 @@
+"""Location — a place in the simulation world."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+
+@dataclass
+class Location:
+    """A named location in the environment."""
+
+    name: str
+    type: str = "generic"
+    position: tuple[int, int] = (0, 0)
+    capacity: int = 50
+    properties: dict[str, object] = field(default_factory=dict)
+    _occupants: set[str] = field(default_factory=set, repr=False)
+
+    @property
+    def occupant_count(self) -> int:
+        return len(self._occupants)
+
+    @property
+    def is_full(self) -> bool:
+        return self.occupant_count >= self.capacity
+
+    def add_occupant(self, agent_id: str) -> bool:
+        if self.is_full:
+            return False
+        self._occupants.add(agent_id)
+        return True
+
+    def remove_occupant(self, agent_id: str) -> None:
+        self._occupants.discard(agent_id)
+
+    def get_occupants(self) -> list[str]:
+        return sorted(self._occupants)
+
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "type": self.type,
+            "position": list(self.position),
+            "capacity": self.capacity,
+            "occupants": self.get_occupants(),
+            "occupant_count": self.occupant_count,
+            "properties": self.properties,
+        }

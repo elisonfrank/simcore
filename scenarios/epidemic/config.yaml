@@ -1,0 +1,220 @@
+simulation:
+  name: "Outbreak"
+  description: "A mysterious illness spreads through a small town — residents must decide between self-preservation and community"
+  time_step: "1 hour"
+  duration: "5 days"
+  seed: 77
+
+llm:
+  model: "gpt-4o-mini"
+  reflection_model: "gpt-4o-mini"
+  cache: true
+  temperature: 0.7
+
+environment:
+  type: grid
+  size: [20, 20]
+  global_state:
+    infection_rate: 0.0
+    panic_level: low
+    hospital_capacity: "available"
+  locations:
+    - name: "Town Clinic"
+      type: healthcare
+      position: [10, 10]
+      capacity: 15
+      properties:
+        description: "Small clinic with limited beds and one overworked doctor"
+        beds: 8
+
+    - name: "General Store"
+      type: commercial
+      position: [8, 8]
+      capacity: 20
+      properties:
+        description: "The only store in town — sells food, medicine, and supplies"
+
+    - name: "Community Church"
+      type: social
+      position: [12, 6]
+      capacity: 40
+      properties:
+        description: "Where the town gathers for meetings, prayer, and decisions"
+
+    - name: "Farm District"
+      type: agricultural
+      position: [4, 14]
+      capacity: 20
+      properties:
+        description: "Farmland supplying the town with food"
+
+    - name: "School"
+      type: education
+      position: [14, 14]
+      capacity: 30
+      properties:
+        description: "Elementary school — should it stay open?"
+
+    - name: "Residential Quarter"
+      type: residential
+      position: [6, 4]
+      capacity: 50
+      properties:
+        description: "Where most families live"
+
+    - name: "Town Hall"
+      type: government
+      position: [10, 2]
+      capacity: 25
+      properties:
+        description: "Where the mayor makes decisions that affect everyone"
+
+agents:
+  - name: "Dr. Amara"
+    age: 48
+    profession: "town doctor"
+    personality:
+      openness: 0.6
+      conscientiousness: 0.95
+      extraversion: 0.4
+      agreeableness: 0.8
+      neuroticism: 0.5
+    goals:
+      - "identify the disease and treat patients"
+      - "prevent the illness from spreading"
+      - "convince the mayor to act before it's too late"
+    starting_location: "Town Clinic"
+    backstory: "Dr. Amara is the only doctor in town. She's seen something like this before during her residency in a larger city — and it terrifies her. She knows the clinic can't handle a real outbreak."
+    resources:
+      money: 20000
+      medicine: 50
+
+  - name: "Mayor Thompson"
+    age: 58
+    profession: "town mayor"
+    personality:
+      openness: 0.3
+      conscientiousness: 0.7
+      extraversion: 0.7
+      agreeableness: 0.4
+      neuroticism: 0.6
+    goals:
+      - "keep the town calm and functioning"
+      - "avoid economic damage from overreacting"
+      - "protect his political reputation"
+    starting_location: "Town Hall"
+    backstory: "Mayor Thompson has led the town for 12 years. He's pragmatic and fears that panic will cause more harm than the illness itself. He wants data before making decisions."
+    resources:
+      money: 45000
+
+  - name: "Rosa"
+    age: 35
+    profession: "school teacher and mother"
+    personality:
+      openness: 0.5
+      conscientiousness: 0.8
+      extraversion: 0.6
+      agreeableness: 0.9
+      neuroticism: 0.7
+    goals:
+      - "keep her students and her own children safe"
+      - "decide whether to keep the school open"
+      - "get reliable information about the illness"
+    starting_location: "School"
+    backstory: "Rosa teaches 3rd grade and has two young kids. She's hearing rumors about sick people but nobody official is saying anything. She's getting more anxious by the day."
+    resources:
+      money: 8000
+
+  - name: "Frank"
+    age: 62
+    profession: "farmer"
+    personality:
+      openness: 0.3
+      conscientiousness: 0.9
+      extraversion: 0.3
+      agreeableness: 0.5
+      neuroticism: 0.2
+    goals:
+      - "keep his farm running no matter what"
+      - "protect his family by staying isolated"
+      - "sell his produce while people still buy"
+    starting_location: "Farm District"
+    backstory: "Frank doesn't trust the government or the media. He's self-sufficient and his first instinct is to lock down his farm and wait it out. But the town needs his food supply."
+    resources:
+      money: 30000
+      food: 200
+
+  - name: "Pastor Grace"
+    age: 44
+    profession: "community pastor"
+    personality:
+      openness: 0.7
+      conscientiousness: 0.6
+      extraversion: 0.9
+      agreeableness: 0.95
+      neuroticism: 0.3
+    goals:
+      - "comfort frightened residents"
+      - "organize community support for the sick"
+      - "prevent the town from turning on each other"
+    starting_location: "Community Church"
+    backstory: "Pastor Grace is the moral compass of the town. When people are scared, they come to her. She believes the community must stay united — but unity requires gatherings, and gatherings may spread the illness."
+    resources:
+      money: 5000
+
+  - name: "Hank"
+    age: 40
+    profession: "general store owner"
+    personality:
+      openness: 0.4
+      conscientiousness: 0.7
+      extraversion: 0.6
+      agreeableness: 0.3
+      neuroticism: 0.5
+    goals:
+      - "keep the store stocked and profitable"
+      - "decide whether to raise prices on medicine"
+      - "protect himself from getting sick"
+    starting_location: "General Store"
+    backstory: "Hank sees an opportunity in crisis. He controls the town's supply of medicine and masks. He's not evil — but he's a businessman first, and the temptation to profit is strong."
+    resources:
+      money: 35000
+      medicine: 30
+      masks: 100
+
+events:
+  scheduled:
+    - tick: 6
+      type: "health_crisis"
+      description: "Three residents arrive at the clinic with high fever and breathing difficulties. Dr. Amara suspects an unknown respiratory illness."
+      effects:
+        first_cases: true
+
+    - tick: 24
+      type: "escalation"
+      description: "The clinic is now full. Two more people fall ill. Rumors of a deadly plague spread through town. People start panic-buying at the General Store."
+      effects:
+        panic_buying: true
+        clinic_full: true
+
+    - tick: 48
+      type: "crisis_point"
+      description: "A child falls seriously ill. The school closes. Frank refuses to deliver food unless paid double. The mayor must decide: quarantine the town or keep it open?"
+      effects:
+        school_closed: true
+        food_shortage_risk: true
+
+    - tick: 72
+      type: "turning_point"
+      description: "Dr. Amara identifies the illness — it's treatable but medicine is running low. Hank has the last supply. The town must decide how to distribute it."
+      effects:
+        treatment_found: true
+        medicine_scarce: true
+
+    - tick: 96
+      type: "resolution"
+      description: "Outside medical supplies finally arrive. The crisis is easing. But the town must reckon with the choices made under pressure."
+      effects:
+        aid_arrives: true
+
+  injectable: true
