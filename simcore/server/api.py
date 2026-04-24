@@ -120,6 +120,15 @@ def create_app(engine: SimulationEngine | None = None) -> FastAPI:
         await server_state["engine"].inject_event(description, location)
         return {"status": "ok", "description": description}
 
+    @app.post("/api/language")
+    async def set_language(payload: dict):
+        """Set the simulation's content language (e.g. 'en', 'pt')."""
+        if not server_state["engine"]:
+            return {"error": "No simulation loaded"}
+        lang = payload.get("language", "en")
+        server_state["engine"].config.language = lang
+        return {"status": "ok", "language": lang}
+
     @app.post("/api/control/{action}")
     async def control(action: str):
         if not server_state["engine"]:

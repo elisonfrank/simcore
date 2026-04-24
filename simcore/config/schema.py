@@ -68,6 +68,9 @@ class SimulationConfig(BaseModel):
     time_step: str = "1 hour"
     duration: str = "7 days"
     seed: int = 42
+    # Language that agents should use when speaking/writing content.
+    # ISO 639-1 code (e.g. "en", "pt", "es"). Can be overridden at runtime.
+    language: str = "en"
     llm: LLMConfig = Field(default_factory=LLMConfig)
     environment: EnvironmentConfig = Field(default_factory=EnvironmentConfig)
     agents: list[AgentConfig] = Field(default_factory=list)

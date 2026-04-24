@@ -175,13 +175,15 @@ class SimulationEngine:
 
     async def _agent_turn(self, agent: Agent, tick: int) -> Any:
         """Run one agent's observation → decision → action cycle."""
-        # Build observation
         observation = self._build_observation(agent, tick)
         agent.observe(observation, tick, importance=0.3)
 
-        # Get decision from LLM
-        prompt = agent.build_prompt(observation)
+        lang = getattr(self.config, "language", "en")
+        prompt = agent.build_prompt(observation, language=lang)
         persona_prompt = agent.persona.to_prompt()
+        if lang != "en":
+            from simcore.llm.prompts import language_directive
+            persona_prompt = f"{persona_prompt}\n\n{language_directive(lang)}"
         action = await self.llm.decide(persona_prompt, prompt)
 
         # Apply action

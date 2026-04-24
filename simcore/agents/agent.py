@@ -59,8 +59,9 @@ class Agent:
         """Record an observation in memory."""
         self.memory.add(tick=tick, content=observation, importance=importance)
 
-    def build_prompt(self, observation: str) -> str:
+    def build_prompt(self, observation: str, language: str = "en") -> str:
         """Build the full prompt for LLM decision-making."""
+        from simcore.llm.prompts import language_directive
         memory_context = self.memory.get_context()
         persona_prompt = self.persona.to_prompt()
 
@@ -88,7 +89,9 @@ Decide your next action. Respond in this exact JSON format:
     "target": "<target agent or location>",
     "content": "<what you say or do>",
     "reasoning": "<brief internal thought>"
-}}"""
+}}
+
+{language_directive(language)}"""
 
     def apply_action(self, action: Action, tick: int) -> None:
         """Apply an action's effects on the agent's state."""
