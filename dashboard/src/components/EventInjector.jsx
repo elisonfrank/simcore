@@ -1,92 +1,116 @@
 import { useState } from 'react';
+import { useT } from '../lib/i18n.jsx';
 
 export default function EventInjector({ onInject, locations }) {
+  const { t } = useT();
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
+  const [sending, setSending] = useState(false);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  async function handleInject() {
     if (!description.trim()) return;
-    onInject(description.trim(), location);
-    setDescription('');
-  };
+    setSending(true);
+    try {
+      await onInject(description, location);
+      setDescription('');
+      setLocation('');
+    } finally {
+      setSending(false);
+    }
+  }
 
   return (
-    <form onSubmit={handleSubmit} style={styles.container}>
-      <div style={styles.title}>Inject Event</div>
-      <input
-        type="text"
+    <div style={styles.root}>
+      <div style={styles.label}>{t('injector.title')}</div>
+      <textarea
         value={description}
-        onChange={e => setDescription(e.target.value)}
-        placeholder="A surprise thunderstorm hits the area..."
-        style={styles.input}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder={t('injector.placeholder')}
+        rows={2}
+        style={styles.textarea}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleInject();
+        }}
       />
-      <div style={styles.row}>
+      <div style={styles.bottomRow}>
         <select
           value={location}
-          onChange={e => setLocation(e.target.value)}
+          onChange={(e) => setLocation(e.target.value)}
           style={styles.select}
         >
-          <option value="">All locations</option>
-          {(locations || []).map(loc => (
+          <option value="">{t('injector.everywhere')}</option>
+          {locations.map((loc) => (
             <option key={loc} value={loc}>{loc}</option>
           ))}
         </select>
-        <button type="submit" style={styles.btn} disabled={!description.trim()}>
-          Inject
+        <button
+          onClick={handleInject}
+          disabled={!description.trim() || sending}
+          style={{
+            ...styles.btn,
+            opacity: !description.trim() || sending ? 0.4 : 1,
+          }}
+        >
+          {sending ? '...' : t('injector.button')}
         </button>
       </div>
-    </form>
+    </div>
   );
 }
 
 const styles = {
-  container: {
-    padding: 12,
-    background: '#12121a',
-    borderTop: '1px solid #1a1a2e',
+  root: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
   },
-  title: {
+  label: {
     fontSize: 10,
-    fontWeight: 600,
+    fontWeight: 700,
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
-    letterSpacing: 1,
-    color: '#555568',
-    marginBottom: 8,
+    color: 'var(--text-3)',
   },
-  input: {
+  textarea: {
     width: '100%',
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid var(--border-subtle)',
+    borderRadius: 6,
+    color: 'var(--text-0)',
     padding: '8px 10px',
-    background: '#0a0a0f',
-    border: '1px solid #2a2a3e',
-    borderRadius: 4,
-    color: '#e0e0e8',
     fontSize: 12,
+    fontFamily: 'var(--font-sans)',
+    resize: 'none',
     outline: 'none',
-    marginBottom: 6,
+    transition: 'border-color var(--transition)',
   },
-  row: {
+  bottomRow: {
     display: 'flex',
     gap: 6,
   },
   select: {
     flex: 1,
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid var(--border-subtle)',
+    borderRadius: 6,
+    color: 'var(--text-1)',
     padding: '6px 8px',
-    background: '#0a0a0f',
-    border: '1px solid #2a2a3e',
-    borderRadius: 4,
-    color: '#8888a0',
     fontSize: 11,
+    fontFamily: 'var(--font-sans)',
     outline: 'none',
+    cursor: 'pointer',
   },
   btn: {
+    background: 'linear-gradient(135deg, #7c6aff, #22d3ee)',
+    border: 'none',
+    borderRadius: 6,
+    color: '#fff',
     padding: '6px 16px',
-    background: '#00d4aa22',
-    border: '1px solid #00d4aa44',
-    borderRadius: 4,
-    color: '#00d4aa',
-    fontSize: 12,
-    fontWeight: 600,
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: 0.5,
     cursor: 'pointer',
+    transition: 'all var(--transition)',
+    boxShadow: '0 0 12px rgba(124,106,255,0.3)',
   },
 };

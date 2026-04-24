@@ -1,118 +1,110 @@
 import { useRef, useEffect } from 'react';
+import { useT, translateAction, translateLocation } from '../lib/i18n.jsx';
 
 const TYPE_COLORS = {
-  agent_speak: '#7c5cfc',
-  agent_move: '#44aaff',
-  agent_action: '#00d4aa',
-  interaction: '#ffaa22',
-  scheduled_event: '#ff6b8a',
-  injected_event: '#ff44aa',
-  reflection: '#aa44ff',
-  tick_start: '#2a2a3e',
-  tick_end: '#2a2a3e',
+  agent_speak: '#22d3ee',
+  agent_move: '#a78bfa',
+  agent_action: '#7c6aff',
+  interaction: '#fb7185',
+  scheduled_event: '#fbbf24',
+  injected_event: '#fb7185',
+  reflection: '#34d399',
 };
 
+const TYPE_LABELS = {
+  agent_speak: 'SAID',
+  agent_move: 'MOVE',
+  agent_action: 'ACT',
+  interaction: 'INTER',
+  scheduled_event: 'EVENT',
+  injected_event: 'INJECT',
+  reflection: 'REFLECT',
+};
+
+const HIDDEN = new Set(['tick_start', 'tick_end', 'simulation_start', 'simulation_end']);
+
 export default function LogStream({ events }) {
-  const bottomRef = useRef(null);
+  const { t } = useT();
+  const endRef = useRef(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [events.length]);
+    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [events]);
 
-  const visibleEvents = events.filter(
-    e => !['tick_start', 'tick_end', 'simulation_start'].includes(e.type)
-  );
+  const filtered = (events || []).filter(e => !HIDDEN.has(e.type));
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <span style={styles.title}>Event Log</span>
-        <span style={styles.count}>{visibleEvents.length}</span>
-      </div>
-      <div style={styles.list}>
-        {visibleEvents.length === 0 && (
-          <div style={{ padding: 20, textAlign: 'center', color: '#555568', fontSize: 12 }}>
-            Waiting for events...
-          </div>
-        )}
-        {visibleEvents.map((event, i) => (
-          <div key={i} style={styles.entry}>
-            <span style={{ ...styles.tick }}>t{event.tick}</span>
-            <span style={{
-              ...styles.type,
-              color: TYPE_COLORS[event.type] || '#8888a0',
-            }}>
-              {event.source || event.type}
+    <div style={styles.root}>
+      {filtered.length === 0 ? (
+        <div style={styles.empty}>{t('panel.waitingActivity')}</div>
+      ) : (
+        filtered.slice(-50).map((e, i) => (
+          <div key={`${e.tick}-${i}`} style={styles.row}>
+            <span style={styles.tick}>t{e.tick}</span>
+            <span style={{ ...styles.type, color: TYPE_COLORS[e.type] || 'var(--text-2)' }}>
+              {TYPE_LABELS[e.type] || e.type.replace('_', ' ').toUpperCase()}
             </span>
-            <span style={styles.text}>
-              {event.data?.action || event.data?.description || event.data?.summary || event.type}
+            {e.source && <span style={styles.source}>{e.source}</span>}
+            <span style={styles.content}>
+              {translateAction(
+                e.data?.action || e.data?.description || e.data?.result || e.data?.summary || '',
+                t,
+                (name) => translateLocation(name, t)
+              )}
             </span>
           </div>
-        ))}
-        <div ref={bottomRef} />
-      </div>
+        ))
+      )}
+      <div ref={endRef} />
     </div>
   );
 }
 
 const styles = {
-  container: {
+  root: {
+    padding: '0 16px 12px',
+    fontFamily: 'var(--font-sans)',
+  },
+  empty: {
+    padding: '20px',
+    textAlign: 'center',
+    color: 'var(--text-3)',
+    fontSize: 11,
+    fontStyle: 'italic',
+  },
+  row: {
     display: 'flex',
-    flexDirection: 'column',
-    height: '100%',
-    background: '#0a0a0f',
-  },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '8px 12px',
-    borderBottom: '1px solid #1a1a2e',
-  },
-  title: {
-    fontSize: 10,
-    fontWeight: 600,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    color: '#555568',
-  },
-  count: {
-    fontSize: 10,
-    color: '#00d4aa',
-    background: '#00d4aa22',
-    padding: '1px 6px',
-    borderRadius: 8,
-  },
-  list: {
-    flex: 1,
-    overflowY: 'auto',
+    alignItems: 'baseline',
+    gap: 10,
     padding: '4px 0',
-  },
-  entry: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: 8,
-    padding: '3px 12px',
     fontSize: 11,
     lineHeight: 1.4,
-    borderBottom: '1px solid #0f0f18',
+    animation: 'slideIn 200ms ease',
   },
   tick: {
-    color: '#555568',
+    color: 'var(--text-3)',
     fontFamily: 'var(--font-mono)',
     fontSize: 10,
+    fontWeight: 600,
     minWidth: 28,
-    flexShrink: 0,
   },
   type: {
-    fontWeight: 600,
-    fontSize: 10,
-    minWidth: 60,
-    flexShrink: 0,
+    fontSize: 9,
+    fontWeight: 700,
+    letterSpacing: 1,
+    minWidth: 52,
+    fontFamily: 'var(--font-mono)',
   },
-  text: {
-    color: '#8888a0',
+  source: {
+    color: 'var(--text-0)',
+    fontWeight: 600,
+    minWidth: 64,
+  },
+  content: {
+    color: 'var(--text-1)',
     flex: 1,
-    wordBreak: 'break-word',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
 };

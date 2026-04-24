@@ -1,105 +1,134 @@
+import { useState } from 'react';
+import { useT } from '../lib/i18n.jsx';
+
 export default function Timeline({ clock, connected, onControl }) {
-  if (!clock) return null;
+  const { t } = useT();
+  const [paused, setPaused] = useState(false);
+
+  if (!clock) {
+    return (
+      <div style={styles.root}>
+        <div style={styles.empty}>—</div>
+      </div>
+    );
+  }
 
   const progress = (clock.progress || 0) * 100;
+  const canControl = connected && onControl;
+
+  const togglePause = () => {
+    if (!canControl) return;
+    const next = !paused;
+    setPaused(next);
+    onControl(next ? 'pause' : 'resume');
+  };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.left}>
-        <div style={{
-          width: 8, height: 8, borderRadius: '50%',
-          background: connected ? '#00d4aa' : '#ff4466',
-          boxShadow: connected ? '0 0 8px #00d4aa' : '0 0 8px #ff4466',
-        }} />
-        <span style={styles.time}>{clock.time || '00:00'}</span>
-        <span style={styles.tick}>tick {clock.tick}/{clock.max_ticks}</span>
+    <div style={styles.root}>
+      <div style={styles.controls}>
+        <button
+          style={{ ...styles.btn, ...styles.btnPrimary }}
+          onClick={togglePause}
+          disabled={!canControl}
+          title={paused ? t('timeline.resume') : t('timeline.pause')}
+        >
+          {paused ? (
+            <svg width="11" height="11" viewBox="0 0 10 10"><polygon points="2,1 8,5 2,9" fill="currentColor"/></svg>
+          ) : (
+            <svg width="11" height="11" viewBox="0 0 10 10"><rect x="2" y="1" width="2" height="8" fill="currentColor"/><rect x="6" y="1" width="2" height="8" fill="currentColor"/></svg>
+          )}
+        </button>
+        <button
+          style={styles.btn}
+          onClick={() => canControl && onControl('stop')}
+          disabled={!canControl}
+          title={t('timeline.stop')}
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7" fill="currentColor"/></svg>
+        </button>
       </div>
 
-      <div style={styles.center}>
-        <div style={styles.progressTrack}>
-          <div style={{ ...styles.progressBar, width: `${progress}%` }} />
+      <div style={styles.bar}>
+        <div style={styles.barTrack}>
+          <div style={{ ...styles.barFill, width: `${progress}%` }} />
         </div>
-      </div>
-
-      <div style={styles.right}>
-        <button onClick={() => onControl('pause')} style={styles.btn} title="Pause">
-          &#x23F8;
-        </button>
-        <button onClick={() => onControl('resume')} style={styles.btn} title="Resume">
-          &#x25B6;
-        </button>
-        <button onClick={() => onControl('stop')} style={{ ...styles.btn, color: '#ff4466' }} title="Stop">
-          &#x23F9;
-        </button>
-        <span style={styles.pct}>{progress.toFixed(0)}%</span>
+        <div style={styles.barLabels}>
+          <span style={styles.tickLabel}>{clock.tick}</span>
+          <span style={styles.pctLabel}>{progress.toFixed(0)}%</span>
+          <span style={styles.tickLabel}>{clock.max_ticks}</span>
+        </div>
       </div>
     </div>
   );
 }
 
 const styles = {
-  container: {
+  root: {
     display: 'flex',
     alignItems: 'center',
-    gap: 16,
-    padding: '8px 16px',
-    background: '#12121a',
-    borderBottom: '1px solid #1a1a2e',
-    height: 44,
+    gap: 14,
+    width: '100%',
+    maxWidth: 480,
   },
-  left: {
+  empty: {
+    color: 'var(--text-3)',
+    fontSize: 12,
+  },
+  controls: {
+    display: 'flex',
+    gap: 4,
+  },
+  btn: {
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid var(--border-subtle)',
+    color: 'var(--text-1)',
+    cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
-    minWidth: 180,
+    justifyContent: 'center',
+    transition: 'all var(--transition)',
+    padding: 0,
   },
-  time: {
-    fontFamily: 'var(--font-mono)',
-    fontSize: 14,
-    fontWeight: 600,
-    color: '#e0e0e8',
+  btnPrimary: {
+    background: 'rgba(124, 106, 255, 0.15)',
+    borderColor: 'rgba(124, 106, 255, 0.3)',
+    color: '#fff',
   },
-  tick: {
-    fontSize: 11,
-    color: '#555568',
-  },
-  center: {
+  bar: {
     flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
   },
-  progressTrack: {
-    height: 4,
-    background: '#1a1a2e',
+  barTrack: {
+    height: 3,
+    background: 'rgba(255,255,255,0.06)',
     borderRadius: 2,
     overflow: 'hidden',
   },
-  progressBar: {
+  barFill: {
     height: '100%',
-    background: 'linear-gradient(90deg, #00d4aa, #7c5cfc)',
+    background: 'linear-gradient(90deg, #7c6aff, #22d3ee)',
     borderRadius: 2,
-    transition: 'width 0.5s ease',
+    boxShadow: '0 0 8px rgba(124,106,255,0.4)',
+    transition: 'width 600ms ease',
   },
-  right: {
+  barLabels: {
     display: 'flex',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 6,
-    minWidth: 140,
-    justifyContent: 'flex-end',
-  },
-  btn: {
-    background: '#1a1a2e',
-    border: '1px solid #2a2a3e',
-    color: '#e0e0e8',
-    borderRadius: 4,
-    padding: '4px 8px',
-    cursor: 'pointer',
-    fontSize: 14,
-    lineHeight: 1,
-  },
-  pct: {
+    fontSize: 9,
+    color: 'var(--text-3)',
     fontFamily: 'var(--font-mono)',
-    fontSize: 12,
-    color: '#8888a0',
-    minWidth: 35,
-    textAlign: 'right',
+    fontWeight: 600,
+  },
+  tickLabel: {
+    minWidth: 10,
+  },
+  pctLabel: {
+    color: 'var(--text-1)',
   },
 };

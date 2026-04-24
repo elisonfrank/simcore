@@ -1,173 +1,300 @@
+import { useMemo } from 'react';
+import { useT, translateAction, translateLocation } from '../lib/i18n.jsx';
+
 const AGENT_COLORS = [
-  '#00d4aa', '#7c5cfc', '#ff6b8a', '#ffaa22', '#44aaff',
-  '#ff44aa', '#44ffaa', '#aa44ff', '#ffdd44', '#44ddff',
+  '#7c6aff', '#22d3ee', '#fb7185', '#fbbf24',
+  '#34d399', '#f472b6', '#a78bfa', '#38bdf8',
+  '#e879f9', '#4ade80',
 ];
 
-function MoodBar({ value, label }) {
-  const pct = ((value + 1) / 2) * 100;
-  const color = value > 0.2 ? '#00d4aa' : value < -0.2 ? '#ff4466' : '#ffaa22';
-  return (
-    <div style={{ marginBottom: 8 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#8888a0', marginBottom: 2 }}>
-        <span>{label}</span>
-        <span>{value.toFixed(2)}</span>
-      </div>
-      <div style={{ height: 4, background: '#1a1a2e', borderRadius: 2 }}>
-        <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 2, transition: 'width 0.3s' }} />
-      </div>
-    </div>
-  );
-}
+export default function AgentInspector({ agent, agentIndex, events, onClose }) {
+  const { t } = useT();
+  const color = AGENT_COLORS[agentIndex % AGENT_COLORS.length];
 
-function TraitBar({ name, value }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-      <span style={{ fontSize: 11, color: '#8888a0', width: 85, textTransform: 'capitalize' }}>{name}</span>
-      <div style={{ flex: 1, height: 3, background: '#1a1a2e', borderRadius: 2 }}>
-        <div style={{ width: `${value * 100}%`, height: '100%', background: '#7c5cfc', borderRadius: 2 }} />
-      </div>
-      <span style={{ fontSize: 10, color: '#555568', width: 30, textAlign: 'right' }}>{(value * 100).toFixed(0)}%</span>
-    </div>
-  );
-}
+  const agentEvents = useMemo(() => {
+    if (!agent || !events) return [];
+    const name = agent.name || agent.persona?.name;
+    return events
+      .filter(e => e.source === name)
+      .slice(-8)
+      .reverse();
+  }, [agent, events]);
 
-export default function AgentInspector({ agent, agentIndex, events }) {
-  if (!agent) {
-    return (
-      <div style={styles.empty}>
-        <div style={{ fontSize: 32, marginBottom: 8 }}>&#x1f50d;</div>
-        <div style={{ color: '#555568' }}>Click an agent on the grid</div>
-      </div>
-    );
-  }
+  if (!agent) return null;
 
-  const color = AGENT_COLORS[(agentIndex || 0) % AGENT_COLORS.length];
-  const agentEvents = events
-    .filter(e => e.source === agent.name)
-    .slice(-10)
-    .reverse();
+  const name = agent.name || agent.persona?.name || 'Agent';
+  const age = agent.age || agent.persona?.age;
+  const profession = agent.profession || agent.persona?.profession || '';
+  const personality = agent.personality || agent.persona?.personality || {};
+  const state = agent.state || {};
+  const mood = state.mood ?? 0;
+  const energy = state.energy ?? 1;
+  const location = state.location || agent.location || '?';
+  const action = state.current_action || 'idle';
+  const resources = state.resources || {};
+  const relationships = agent.relationships || {};
+  const goals = agent.goals || agent.persona?.goals || [];
 
   return (
-    <div style={styles.container}>
-      {/* Header */}
-      <div style={{ ...styles.header, borderLeftColor: color }}>
-        <div style={{ fontSize: 16, fontWeight: 600, color }}>{agent.name}</div>
-        <div style={{ fontSize: 12, color: '#8888a0' }}>{agent.location}</div>
-      </div>
-
-      {/* Current Action */}
-      {agent.current_action && (
-        <div style={styles.section}>
-          <div style={styles.sectionTitle}>Current Action</div>
-          <div style={{ fontSize: 13, color: '#e0e0e8', fontStyle: 'italic' }}>
-            {agent.current_action}
+    <div style={styles.root}>
+      <div style={styles.header}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={styles.avatar(color)}>
+            {name.substring(0, 2).toUpperCase()}
+          </div>
+          <div>
+            <div style={styles.name}>{name}</div>
+            <div style={styles.subtitle}>
+              {age && <span>{age}</span>}
+              {age && profession && <span style={{ margin: '0 6px', color: 'var(--text-3)' }}>·</span>}
+              {profession && <span>{profession}</span>}
+            </div>
           </div>
         </div>
-      )}
-
-      {/* Stats */}
-      <div style={styles.section}>
-        <MoodBar value={agent.mood || 0} label="Mood" />
-        <MoodBar value={(agent.energy || 0) * 2 - 1} label="Energy" />
+        <button onClick={onClose} style={styles.closeBtn} title={t('panel.close')}>×</button>
       </div>
 
-      {/* Personality */}
-      {agent.personality && (
-        <div style={styles.section}>
-          <div style={styles.sectionTitle}>Personality</div>
-          {Object.entries(agent.personality).map(([name, value]) => (
-            <TraitBar key={name} name={name} value={value} />
-          ))}
-        </div>
-      )}
+      <div style={styles.content}>
+        <Section>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <Dot color={color} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-0)' }}>{translateLocation(location, t)}</span>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-1)', lineHeight: 1.5 }}>{translateAction(action, t, (n) => translateLocation(n, t))}</div>
+        </Section>
 
-      {/* Resources */}
-      {agent.resources && Object.keys(agent.resources).length > 0 && (
-        <div style={styles.section}>
-          <div style={styles.sectionTitle}>Resources</div>
-          {Object.entries(agent.resources).map(([key, val]) => (
-            <div key={key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 2 }}>
-              <span style={{ color: '#8888a0', textTransform: 'capitalize' }}>{key}</span>
-              <span style={{ color: '#e0e0e8', fontFamily: 'var(--font-mono)' }}>{typeof val === 'number' ? val.toLocaleString() : val}</span>
-            </div>
-          ))}
-        </div>
-      )}
+        <Section title={t('inspector.vitals')}>
+          <Bar label={t('inspector.mood')} value={(mood + 1) / 2} color="#7c6aff" display={mood.toFixed(2)} />
+          <Bar label={t('inspector.energy')} value={energy} color="#22d3ee" display={energy.toFixed(2)} />
+        </Section>
 
-      {/* Recent Actions */}
-      {agentEvents.length > 0 && (
-        <div style={styles.section}>
-          <div style={styles.sectionTitle}>Recent Activity</div>
-          <div style={{ maxHeight: 150, overflowY: 'auto' }}>
-            {agentEvents.map((e, i) => (
-              <div key={i} style={{
-                fontSize: 11,
-                color: '#8888a0',
-                padding: '3px 0',
-                borderBottom: '1px solid #1a1a2e',
-              }}>
-                <span style={{ color: '#555568', marginRight: 6 }}>t{e.tick}</span>
-                {e.data?.action || e.type}
+        {Object.keys(personality).length > 0 && (
+          <Section title={t('inspector.personality')}>
+            <Bar label={t('inspector.personality.openness')} value={personality.openness ?? 0.5} color="#fbbf24" />
+            <Bar label={t('inspector.personality.conscientiousness')} value={personality.conscientiousness ?? 0.5} color="#34d399" />
+            <Bar label={t('inspector.personality.extraversion')} value={personality.extraversion ?? 0.5} color="#fb7185" />
+            <Bar label={t('inspector.personality.agreeableness')} value={personality.agreeableness ?? 0.5} color="#a78bfa" />
+            <Bar label={t('inspector.personality.neuroticism')} value={personality.neuroticism ?? 0.5} color="#38bdf8" />
+          </Section>
+        )}
+
+        {goals.length > 0 && (
+          <Section title={t('inspector.goals')}>
+            {goals.slice(0, 3).map((goal, i) => (
+              <div key={i} style={styles.goal}>
+                <span style={{ color: 'var(--text-3)', marginRight: 8 }}>→</span>
+                {goal}
               </div>
             ))}
-          </div>
-        </div>
-      )}
+          </Section>
+        )}
 
-      {/* Memory Summary */}
-      {agent.memory_summary && (
-        <div style={styles.section}>
-          <div style={styles.sectionTitle}>Memory</div>
-          <pre style={{
-            fontSize: 10,
-            color: '#8888a0',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-            maxHeight: 200,
-            overflowY: 'auto',
-            lineHeight: 1.4,
-          }}>
-            {agent.memory_summary}
-          </pre>
-        </div>
-      )}
+        {Object.keys(resources).length > 0 && (
+          <Section title={t('inspector.resources')}>
+            <div style={styles.resourceGrid}>
+              {Object.entries(resources).map(([key, value]) => (
+                <div key={key} style={styles.resource}>
+                  <div style={styles.resourceLabel}>{key}</div>
+                  <div style={styles.resourceValue}>{typeof value === 'number' ? value.toLocaleString() : value}</div>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {Object.keys(relationships).length > 0 && (
+          <Section title={t('inspector.relationships')}>
+            {Object.entries(relationships).slice(0, 4).map(([name, desc]) => (
+              <div key={name} style={styles.relationship}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-0)' }}>{name}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 2, lineHeight: 1.4 }}>{desc}</div>
+              </div>
+            ))}
+          </Section>
+        )}
+
+        {agentEvents.length > 0 && (
+          <Section title={t('inspector.activity')}>
+            {agentEvents.map((e, i) => (
+              <div key={i} style={styles.activityItem}>
+                <div style={styles.activityTick}>t{e.tick}</div>
+                <div style={styles.activityText}>
+                  {translateAction(e.data?.action || e.data?.description || e.type, t, (n) => translateLocation(n, t))}
+                </div>
+              </div>
+            ))}
+          </Section>
+        )}
+      </div>
     </div>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <div style={styles.section}>
+      {title && <div style={styles.sectionTitle}>{title}</div>}
+      {children}
+    </div>
+  );
+}
+
+function Bar({ label, value, color, display }) {
+  const pct = Math.max(0, Math.min(1, value)) * 100;
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+        <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{label}</span>
+        <span style={{ fontSize: 11, color: 'var(--text-1)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+          {display || pct.toFixed(0)}
+        </span>
+      </div>
+      <div style={{ height: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{
+          width: `${pct}%`,
+          height: '100%',
+          background: `linear-gradient(90deg, ${color}aa, ${color})`,
+          borderRadius: 2,
+          boxShadow: `0 0 8px ${color}60`,
+          transition: 'width 500ms ease',
+        }} />
+      </div>
+    </div>
+  );
+}
+
+function Dot({ color }) {
+  return (
+    <div style={{
+      width: 8,
+      height: 8,
+      borderRadius: '50%',
+      background: color,
+      boxShadow: `0 0 8px ${color}`,
+    }} />
   );
 }
 
 const styles = {
-  container: {
-    height: '100%',
-    overflowY: 'auto',
-    padding: 12,
-  },
-  empty: {
-    height: '100%',
+  root: {
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
+    maxHeight: '100%',
+    height: '100%',
   },
   header: {
-    padding: '8px 12px',
-    borderLeft: '3px solid',
-    marginBottom: 12,
-    background: '#1a1a2e',
-    borderRadius: '0 6px 6px 0',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '14px 16px',
+    borderBottom: '1px solid var(--border-subtle)',
+  },
+  avatar: (color) => ({
+    width: 44,
+    height: 44,
+    borderRadius: '50%',
+    background: `linear-gradient(135deg, ${color}, ${color}bb)`,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 15,
+    fontWeight: 700,
+    color: '#fff',
+    boxShadow: `0 0 16px ${color}50`,
+    flexShrink: 0,
+  }),
+  name: {
+    fontSize: 15,
+    fontWeight: 700,
+    color: 'var(--text-0)',
+    letterSpacing: -0.2,
+  },
+  subtitle: {
+    fontSize: 11,
+    color: 'var(--text-2)',
+    marginTop: 2,
+  },
+  closeBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: '50%',
+    background: 'transparent',
+    border: '1px solid var(--border-subtle)',
+    color: 'var(--text-2)',
+    fontSize: 16,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all var(--transition)',
+  },
+  content: {
+    flex: 1,
+    overflow: 'auto',
+    padding: '4px 0',
   },
   section: {
-    marginBottom: 12,
-    padding: 10,
-    background: '#12121a',
-    borderRadius: 6,
-    border: '1px solid #1a1a2e',
+    padding: '12px 16px',
+    borderBottom: '1px solid var(--border-subtle)',
   },
   sectionTitle: {
     fontSize: 10,
-    fontWeight: 600,
+    fontWeight: 700,
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
-    letterSpacing: 1,
-    color: '#555568',
-    marginBottom: 8,
+    color: 'var(--text-3)',
+    marginBottom: 10,
+  },
+  goal: {
+    fontSize: 12,
+    color: 'var(--text-1)',
+    lineHeight: 1.5,
+    marginBottom: 4,
+  },
+  resourceGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: 8,
+  },
+  resource: {
+    padding: '8px 10px',
+    background: 'rgba(255,255,255,0.02)',
+    borderRadius: 6,
+    border: '1px solid var(--border-subtle)',
+  },
+  resourceLabel: {
+    fontSize: 9,
+    color: 'var(--text-3)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  resourceValue: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: 'var(--text-0)',
+    fontFamily: 'var(--font-mono)',
+  },
+  relationship: {
+    padding: '8px 0',
+    borderBottom: '1px solid var(--border-subtle)',
+  },
+  activityItem: {
+    display: 'flex',
+    gap: 10,
+    padding: '6px 0',
+    fontSize: 11,
+    color: 'var(--text-1)',
+    lineHeight: 1.4,
+  },
+  activityTick: {
+    fontSize: 10,
+    color: 'var(--text-3)',
+    fontFamily: 'var(--font-mono)',
+    fontWeight: 600,
+    minWidth: 32,
+  },
+  activityText: {
+    flex: 1,
   },
 };
