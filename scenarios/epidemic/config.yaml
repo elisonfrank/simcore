@@ -2,14 +2,15 @@ simulation:
   name: "Outbreak"
   description: "A mysterious illness spreads through a small town — residents must decide between self-preservation and community"
   time_step: "1 hour"
-  duration: "5 days"
+  duration: "2 days"
   seed: 77
+  language: pt
 
 llm:
-  model: "gpt-4o-mini"
-  reflection_model: "gpt-4o-mini"
+  model: "ollama/llama3.2:3b"
+  reflection_model: "ollama/llama3.2:3b"
   cache: true
-  temperature: 0.7
+  temperature: 1.0
 
 environment:
   type: grid
@@ -186,34 +187,34 @@ events:
   scheduled:
     - tick: 6
       type: "health_crisis"
-      description: "Three residents arrive at the clinic with high fever and breathing difficulties. Dr. Amara suspects an unknown respiratory illness."
+      description: "Três moradores chegam à clínica com febre alta e dificuldade para respirar. Dr. Amara suspeita de uma doença respiratória desconhecida."
       effects:
         first_cases: true
 
     - tick: 24
       type: "escalation"
-      description: "The clinic is now full. Two more people fall ill. Rumors of a deadly plague spread through town. People start panic-buying at the General Store."
+      description: "A clínica está lotada. Mais duas pessoas adoeceram. Boatos sobre uma praga mortal se espalham pela cidade. As pessoas começam a comprar em pânico na Mercearia."
       effects:
         panic_buying: true
         clinic_full: true
 
     - tick: 48
       type: "crisis_point"
-      description: "A child falls seriously ill. The school closes. Frank refuses to deliver food unless paid double. The mayor must decide: quarantine the town or keep it open?"
+      description: "Uma criança fica gravemente doente. A escola fecha. Frank se recusa a entregar comida sem cobrar o dobro. O prefeito precisa decidir: quarentena ou manter a cidade aberta?"
       effects:
         school_closed: true
         food_shortage_risk: true
 
     - tick: 72
       type: "turning_point"
-      description: "Dr. Amara identifies the illness — it's treatable but medicine is running low. Hank has the last supply. The town must decide how to distribute it."
+      description: "Dr. Amara identificou a doença — é tratável, mas os remédios estão acabando. Hank tem o último estoque. A cidade precisa decidir como distribuí-lo."
       effects:
         treatment_found: true
         medicine_scarce: true
 
     - tick: 96
       type: "resolution"
-      description: "Outside medical supplies finally arrive. The crisis is easing. But the town must reckon with the choices made under pressure."
+      description: "Suprimentos médicos externos finalmente chegam. A crise está diminuindo. Mas a cidade precisa lidar com as escolhas feitas sob pressão."
       effects:
         aid_arrives: true
 
