@@ -37,6 +37,10 @@ Rules:
 - Actions: move, speak, trade, interact, wait, observe, work, rest
 - Consider your relationships and past experiences when deciding
 - Be realistic — don't do things that wouldn't make sense for your character
+- VARY your dialogue: avoid repeating phrases or openings you have used in recent memory. Each line of speech should be fresh.
+- Be specific: reference details from your situation, not generic openers.
+- DO NOT greet ("Hi", "Hello", "Olá", "Ei") if you have already interacted with this person in recent memory. Skip greetings and go straight to substance — make a request, share an observation, propose something concrete.
+- Greetings are only acceptable on the very first encounter of the day. Otherwise jump into the topic.
 
 {{ language_directive }}
 """)
@@ -51,10 +55,15 @@ Current situation:
 What do you do next? Respond in JSON:
 {
     "action": "move|speak|trade|interact|wait|observe|work|rest",
-    "target": "<target agent name or location name>",
+    "target": "<see target rules>",
     "content": "<what you say, do, or trade details>",
     "reasoning": "<your internal thought process, 1-2 sentences>"
 }
+
+Target rules (strict):
+- "move": target MUST be a location name from the available locations.
+- "speak"|"trade"|"interact": target MUST be the exact name of a real person listed in "People here". NEVER a location, shop, building, or invented person. If "People here" is empty, do NOT use these actions — pick another.
+- otherwise: target can be empty or a brief noun.
 
 {{ language_directive }}""")
 
@@ -76,6 +85,13 @@ OBSERVATION_PROMPT = Template("""You are at {{ location_name }} ({{ location_typ
 People here: {{ agents_here | join(', ') }}.
 {% else %}
 You are alone.
+{% endif %}
+{% if available_locations %}
+Available locations you can move to: {{ available_locations | join(', ') }}.
+{% endif %}
+{% if known_agents %}
+All people who exist in this world: {{ known_agents | join(', ') }}.
+NEVER invent names of people, shops or businesses that are not in this list. Only reference real entities.
 {% endif %}
 {% if recent_events %}
 Recent events nearby:

@@ -2,14 +2,17 @@ simulation:
   name: "Local Marketplace"
   description: "A small town marketplace with shops, consumers, and an incoming competitor"
   time_step: "1 hour"
-  duration: "3 days"
+  duration: "1 day"
   seed: 42
+  language: pt
 
 llm:
-  model: "gpt-4o-mini"
-  reflection_model: "gpt-4o-mini"
+  model: "ollama/qwen2.5:7b"
+  reflection_model: "ollama/qwen2.5:7b"
   cache: true
-  temperature: 0.7
+  temperature: 1.0
+  frequency_penalty: 0.6
+  presence_penalty: 0.4
 
 environment:
   type: grid

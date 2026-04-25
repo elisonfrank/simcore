@@ -44,6 +44,8 @@ class SimulationEngine:
                 temperature=config.llm.temperature,
                 max_tokens=config.llm.max_tokens,
                 cache_enabled=config.llm.cache,
+                frequency_penalty=config.llm.frequency_penalty,
+                presence_penalty=config.llm.presence_penalty,
             )
         self.interaction_resolver = InteractionResolver()
         self._running = False
@@ -157,7 +159,9 @@ class SimulationEngine:
                 target = self._find_agent_by_name(action.target)
                 if target and target.location == agent.location:
                     result = self.interaction_resolver.resolve(agent, target, action, tick)
-                    if result:
+                    # Skip INTERACTION event for SPEAK — AGENT_SPEAK already
+                    # emitted the same line, no need to duplicate.
+                    if result and action.type != ActionType.SPEAK:
                         await self.event_bus.emit(SimEvent(
                             type=EventType.INTERACTION, tick=tick,
                             data={"result": result.description},
@@ -223,20 +227,25 @@ class SimulationEngine:
         recent_events = self.environment.get_recent_events(tick, window=3)
         event_descriptions = [e["description"] for e in recent_events if e.get("location") == agent.location]
 
+        available_locations = self.environment.get_location_names()
+        known_agents = [a.name for a in self.agents.values() if a.id != agent.id]
         return OBSERVATION_PROMPT.render(
             location_name=location.name,
             location_type=location.type,
             agents_here=nearby_names,
+            available_locations=available_locations,
+            known_agents=known_agents,
             recent_events=event_descriptions[-5:],
             global_context=str(self.environment.global_state) if self.environment.global_state else "",
         )
 
     async def _run_reflections(self, tick: int) -> None:
         """Run periodic reflection for all agents."""
+        lang = getattr(self.config, "language", "en")
         for agent in self.agents.values():
             memories = agent.memory.get_context(max_entries=10)
             if memories:
-                summary = await self.llm.reflect(memories)
+                summary = await self.llm.reflect(memories, language=lang)
                 if summary:
                     agent.memory.add_reflection(summary)
                     await self.event_bus.emit(SimEvent(

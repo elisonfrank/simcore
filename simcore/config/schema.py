@@ -58,6 +58,9 @@ class LLMConfig(BaseModel):
     cache: bool = True
     temperature: float = 0.7
     max_tokens: int = 500
+    # Penalize repetition. 0.0 = off, 0.5-1.5 typical. Helps small local models.
+    frequency_penalty: float = 0.0
+    presence_penalty: float = 0.0
 
 
 class SimulationConfig(BaseModel):

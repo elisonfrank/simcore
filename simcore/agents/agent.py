@@ -61,6 +61,7 @@ class Agent:
 
     def build_prompt(self, observation: str, language: str = "en") -> str:
         """Build the full prompt for LLM decision-making."""
+        from simcore.agents.actions import ActionType
         from simcore.llm.prompts import language_directive
         memory_context = self.memory.get_context()
         persona_prompt = self.persona.to_prompt()
@@ -74,11 +75,36 @@ class Agent:
             resources_str = ", ".join(f"{k}: {v}" for k, v in self.state.resources.items())
             state_desc += f" Resources: {resources_str}."
 
+        # Pull last 3 dialogue lines THIS agent said, to discourage repetition.
+        recent_lines = []
+        recent_targets = set()
+        for a in reversed(self._action_history[-12:]):
+            if a.type in (ActionType.SPEAK, ActionType.TRADE, ActionType.INTERACT) and a.content:
+                recent_lines.append(f'- "{a.content}"')
+                if a.target:
+                    recent_targets.add(a.target)
+                if len(recent_lines) >= 3:
+                    break
+        recent_dialogue = ""
+        if recent_lines:
+            recent_dialogue = (
+                "Things you said recently (DO NOT repeat these phrases — speak with fresh wording):\n"
+                + "\n".join(reversed(recent_lines))
+            )
+        if recent_targets:
+            already = ", ".join(sorted(recent_targets))
+            recent_dialogue += (
+                f"\n\nYou ALREADY interacted recently with: {already}. "
+                f"If you speak to any of them again, DO NOT start with a greeting — go straight to the point."
+            )
+
         return f"""{persona_prompt}
 
 {state_desc}
 
 {memory_context}
+
+{recent_dialogue}
 
 Current situation:
 {observation}
@@ -86,10 +112,15 @@ Current situation:
 Decide your next action. Respond in this exact JSON format:
 {{
     "action": "move|speak|trade|interact|wait|observe|work|rest",
-    "target": "<target agent or location>",
+    "target": "<see target rules below>",
     "content": "<what you say or do>",
     "reasoning": "<brief internal thought>"
 }}
+
+Target rules (strict):
+- For "move": target MUST be the exact name of an available location (not a person).
+- For "speak", "trade", "interact": target MUST be the exact name of a real person listed in "People here" above. NEVER a location name, shop name, building, or invented person. If "People here" is empty or "You are alone", you CANNOT speak/trade/interact — choose move, observe, work, or rest instead.
+- For "observe", "work", "rest", "wait": target can be empty or a brief noun (e.g., "surroundings").
 
 {language_directive(language)}"""
 

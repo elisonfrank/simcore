@@ -75,7 +75,7 @@ const DICTIONARIES = {
     'action.tradesWith': 'trades with {target}: {content}',
     'action.interactsWith': 'interacts with {target}',
     'action.works': 'works: {content}',
-    'action.observes': 'observes: {content}',
+    'action.observes': 'observes the surroundings',
     'action.does': 'does: {content}',
     'action.xSaysTo': '{source} says to {target}: "{content}"',
     'action.xTradesWith': '{source} trades with {target}: {content}',
@@ -202,7 +202,7 @@ const DICTIONARIES = {
     'action.tradesWith': 'negocia com {target}: {content}',
     'action.interactsWith': 'interage com {target}',
     'action.works': 'trabalha: {content}',
-    'action.observes': 'observa: {content}',
+    'action.observes': 'observa o entorno',
     'action.does': 'faz: {content}',
     'action.xSaysTo': '{source} diz para {target}: "{content}"',
     'action.xTradesWith': '{source} negocia com {target}: {content}',
@@ -326,9 +326,9 @@ export function translateAction(str, t, translateName = (n) => n) {
   if ((m = str.match(/^moves to (.+)$/))) return t('action.movesTo', { target: n(m[1]) });
   if ((m = str.match(/^trades with (.+?): (.+)$/))) return t('action.tradesWith', { target: n(m[1]), content: m[2] });
   if ((m = str.match(/^interacts with (.+)$/))) return t('action.interactsWith', { target: n(m[1]) });
-  if ((m = str.match(/^works: (.+)$/))) return t('action.works', { content: m[1] });
-  if ((m = str.match(/^observes: (.+)$/))) return t('action.observes', { content: m[1] });
-  if ((m = str.match(/^does: (.+)$/))) return t('action.does', { content: m[1] });
+  if ((m = str.match(/^works[:\s]+(.+)$/i))) return t('action.works', { content: m[1] });
+  if (/^observes\b/i.test(str)) return t('action.observes');
+  if ((m = str.match(/^does[:\s]+(.+)$/i))) return t('action.does', { content: m[1] });
   // Source-prefixed variants (from interaction descriptions)
   if ((m = str.match(/^(.+?) says to (.+?): "(.+)"$/))) return t('action.xSaysTo', { source: m[1], target: n(m[2]), content: m[3] });
   if ((m = str.match(/^(.+?) trades with (.+?): (.+)$/))) return t('action.xTradesWith', { source: m[1], target: n(m[2]), content: m[3] });

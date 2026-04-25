@@ -66,10 +66,7 @@ class SimClock:
         days = total_minutes // 1440
         hours = (total_minutes % 1440) // 60
         minutes = total_minutes % 60
-
-        if days > 0:
-            return f"Day {days + 1}, {hours:02d}:{minutes:02d}"
-        return f"{hours:02d}:{minutes:02d}"
+        return f"Day {days + 1}, {hours:02d}:{minutes:02d}"
 
     def to_dict(self) -> dict:
         return {

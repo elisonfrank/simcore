@@ -16,6 +16,11 @@ logger = logging.getLogger("simcore.llm")
 # Suppress litellm verbose logging
 litellm.suppress_debug_info = True
 
+# Drop params that aren't supported by the active provider
+# (e.g. Ollama doesn't accept presence_penalty/frequency_penalty/response_format).
+# Without this, requests fail instead of degrading gracefully.
+litellm.drop_params = True
+
 
 class LLMProvider:
     """Wrapper around LiteLLM for agent decision-making."""
@@ -27,11 +32,15 @@ class LLMProvider:
         temperature: float = 0.7,
         max_tokens: int = 500,
         cache_enabled: bool = True,
+        frequency_penalty: float = 0.0,
+        presence_penalty: float = 0.0,
     ):
         self.model = model
         self.reflection_model = reflection_model or model
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.frequency_penalty = frequency_penalty
+        self.presence_penalty = presence_penalty
         self.cache = ResponseCache() if cache_enabled else None
         self._call_count = 0
         self._cache_hits = 0
@@ -56,6 +65,8 @@ class LLMProvider:
                 ],
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
+                frequency_penalty=self.frequency_penalty,
+                presence_penalty=self.presence_penalty,
                 response_format={"type": "json_object"},
             )
             content = response.choices[0].message.content
@@ -67,8 +78,9 @@ class LLMProvider:
             logger.warning(f"LLM call failed: {e}. Returning WAIT action.")
             return Action(type=ActionType.WAIT, reasoning=f"LLM error: {e}")
 
-    async def reflect(self, memories: str) -> str:
+    async def reflect(self, memories: str, language: str = "en") -> str:
         """Generate a reflection summary from recent memories."""
+        from simcore.llm.prompts import language_directive
         self._call_count += 1
         try:
             response = await litellm.acompletion(
@@ -78,12 +90,13 @@ class LLMProvider:
                         "role": "system",
                         "content": (
                             "You are summarizing an agent's recent experiences into key insights. "
-                            "Be concise — 2-3 sentences max."
+                            "Be concise — 2-3 sentences max.\n\n"
+                            f"{language_directive(language)}"
                         ),
                     },
                     {
                         "role": "user",
-                        "content": f"Summarize these recent experiences into key insights:\n\n{memories}",
+                        "content": f"Summarize these recent experiences into key insights:\n\n{memories}\n\n{language_directive(language)}",
                     },
                 ],
                 temperature=0.3,
