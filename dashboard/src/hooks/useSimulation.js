@@ -5,10 +5,13 @@ const isDev = import.meta.env.DEV;
 const API_BASE = isDev ? 'http://localhost:8420' : '';
 const WS_URL = isDev ? 'ws://localhost:8420/ws' : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
 
+const SIGNIFICANT_TYPES = new Set(['scheduled_event', 'injected_event', 'interaction']);
+
 export function useSimulation() {
   const [state, setState] = useState(null);
   const [events, setEvents] = useState([]);
   const [connected, setConnected] = useState(false);
+  const [lastSignificantEvent, setLastSignificantEvent] = useState(null);
   const wsRef = useRef(null);
   const eventsRef = useRef([]);
 
@@ -46,6 +49,10 @@ export function useSimulation() {
         // Append to events log
         eventsRef.current = [...eventsRef.current.slice(-200), event];
         setEvents([...eventsRef.current]);
+
+        if (SIGNIFICANT_TYPES.has(event.type)) {
+          setLastSignificantEvent({ ...event, _ts: Date.now() });
+        }
       } catch (e) {
         console.warn('Failed to parse event:', e);
       }
@@ -76,5 +83,5 @@ export function useSimulation() {
     }
   }, []);
 
-  return { state, events, connected, injectEvent, control };
+  return { state, events, connected, injectEvent, control, lastSignificantEvent };
 }

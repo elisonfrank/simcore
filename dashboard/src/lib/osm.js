@@ -19,8 +19,96 @@ const TYPE_FALLBACKS = {
   education: ['social', 'administrative'],
   healthcare: ['administrative', 'social'],
   social: ['education', 'administrative'],
-  agricultural: ['leisure', 'residential'],
+  agricultural: ['residential'],
 };
+
+// Name-based hints: keywords found in scenario location names map to
+// specific OSM tag predicates. Higher specificity = better match.
+// Keys are lowercased keywords (PT + EN). Multiple keywords can match.
+const NAME_HINTS = {
+  market: [(t) => t.shop === 'supermarket', (t) => t.shop === 'convenience', (t) => t.amenity === 'marketplace', (t) => t.shop === 'greengrocer'],
+  mercado: [(t) => t.shop === 'supermarket', (t) => t.shop === 'convenience', (t) => t.amenity === 'marketplace', (t) => t.shop === 'greengrocer'],
+  mercearia: [(t) => t.shop === 'convenience', (t) => t.shop === 'grocery', (t) => t.shop === 'supermarket'],
+  food: [(t) => t.shop === 'greengrocer', (t) => t.shop === 'supermarket', (t) => t.amenity === 'marketplace', (t) => t.amenity === 'restaurant'],
+  alimentos: [(t) => t.shop === 'greengrocer', (t) => t.shop === 'supermarket', (t) => t.amenity === 'marketplace'],
+  electronics: [(t) => t.shop === 'electronics', (t) => t.shop === 'computer', (t) => t.shop === 'mobile_phone'],
+  eletronicos: [(t) => t.shop === 'electronics', (t) => t.shop === 'computer', (t) => t.shop === 'mobile_phone'],
+  cafe: [(t) => t.amenity === 'cafe', (t) => t.shop === 'coffee'],
+  café: [(t) => t.amenity === 'cafe', (t) => t.shop === 'coffee'],
+  square: [(t) => t.place === 'square', (t) => t.leisure === 'park', (t) => t.highway === 'pedestrian'],
+  praça: [(t) => t.place === 'square', (t) => t.leisure === 'park'],
+  praca: [(t) => t.place === 'square', (t) => t.leisure === 'park'],
+  hall: [(t) => t.amenity === 'townhall'],
+  prefeitura: [(t) => t.amenity === 'townhall'],
+  townhall: [(t) => t.amenity === 'townhall'],
+  hospital: [(t) => t.amenity === 'hospital'],
+  clinic: [(t) => t.amenity === 'clinic', (t) => t.amenity === 'hospital'],
+  clinica: [(t) => t.amenity === 'clinic', (t) => t.amenity === 'hospital'],
+  clínica: [(t) => t.amenity === 'clinic', (t) => t.amenity === 'hospital'],
+  school: [(t) => t.amenity === 'school'],
+  escola: [(t) => t.amenity === 'school'],
+  university: [(t) => t.amenity === 'university', (t) => t.amenity === 'college'],
+  universidade: [(t) => t.amenity === 'university', (t) => t.amenity === 'college'],
+  university_campus: [(t) => t.amenity === 'university'],
+  campus: [(t) => t.amenity === 'university', (t) => t.amenity === 'college'],
+  library: [(t) => t.amenity === 'library'],
+  biblioteca: [(t) => t.amenity === 'library'],
+  park: [(t) => t.leisure === 'park', (t) => t.leisure === 'garden'],
+  parque: [(t) => t.leisure === 'park', (t) => t.leisure === 'garden'],
+  church: [(t) => t.amenity === 'place_of_worship', (t) => t.building === 'church'],
+  igreja: [(t) => t.amenity === 'place_of_worship', (t) => t.building === 'church'],
+  community: [(t) => t.amenity === 'community_centre', (t) => t.amenity === 'social_centre'],
+  comunitaria: [(t) => t.amenity === 'community_centre'],
+  comunitária: [(t) => t.amenity === 'community_centre'],
+  store: [(t) => t.shop === 'convenience', (t) => t.shop === 'supermarket', (t) => t.shop === 'general'],
+  loja: [(t) => t.shop === 'convenience', (t) => t.shop === 'supermarket'],
+  farm: [(t) => t.landuse === 'farmland', (t) => t.landuse === 'farm', (t) => t.place === 'farm'],
+  fazenda: [(t) => t.landuse === 'farmland', (t) => t.landuse === 'farm'],
+  rural: [(t) => t.landuse === 'farmland', (t) => t.landuse === 'farm', (t) => t.landuse === 'orchard'],
+  cafeteria: [(t) => t.amenity === 'cafe'],
+  cantina: [(t) => t.amenity === 'cafe', (t) => t.amenity === 'fast_food'],
+  district: [(t) => t.landuse === 'commercial', (t) => t.place === 'suburb'],
+  distrito: [(t) => t.landuse === 'commercial', (t) => t.place === 'suburb'],
+  residential: [(t) => t.landuse === 'residential', (t) => t.building === 'apartments'],
+  residencial: [(t) => t.landuse === 'residential', (t) => t.building === 'apartments'],
+  bairro: [(t) => t.place === 'neighbourhood', (t) => t.place === 'suburb', (t) => t.landuse === 'residential'],
+  apartment: [(t) => t.building === 'apartments', (t) => t.building === 'residential'],
+  apartamento: [(t) => t.building === 'apartments'],
+  hallway: [(t) => t.indoor === 'corridor'],
+  corredor: [(t) => t.indoor === 'corridor'],
+  sports: [(t) => t.leisure === 'sports_centre', (t) => t.leisure === 'pitch', (t) => t.leisure === 'stadium'],
+  esporte: [(t) => t.leisure === 'sports_centre', (t) => t.leisure === 'pitch'],
+  esportiva: [(t) => t.leisure === 'sports_centre', (t) => t.leisure === 'pitch'],
+  field: [(t) => t.leisure === 'pitch', (t) => t.leisure === 'sports_centre'],
+  art: [(t) => t.amenity === 'arts_centre', (t) => t.shop === 'art'],
+  artes: [(t) => t.amenity === 'arts_centre'],
+  office: [(t) => t.office, (t) => t.building === 'office'],
+  escritório: [(t) => t.office, (t) => t.building === 'office'],
+  escritorio: [(t) => t.office, (t) => t.building === 'office'],
+  downtown: [(t) => t.place === 'suburb', (t) => t.landuse === 'commercial'],
+  centro: [(t) => t.place === 'suburb', (t) => t.landuse === 'commercial'],
+  cafe_district: [(t) => t.amenity === 'cafe'],
+};
+
+function nameKeywords(name) {
+  return name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[\s_\-]+/).filter(Boolean);
+}
+
+function nameMatchScore(loc, tags) {
+  const keywords = nameKeywords(loc.name || '');
+  let score = 0;
+  for (const kw of keywords) {
+    const preds = NAME_HINTS[kw];
+    if (!preds) continue;
+    for (const p of preds) {
+      if (p(tags)) {
+        score += 100;
+        break;
+      }
+    }
+  }
+  return score;
+}
 
 const TYPE_MATCHERS = {
   commercial: [
@@ -271,18 +359,21 @@ export async function resolveScenarioLocations(scenarioLocations, center) {
 
   // Group POIs by matching scenario type. Filter to POIs within ~3km of
   // the urban center so scenarios feel compact and in-town.
+  // Exception: agricultural type uses a wider radius (up to ~8km) since
+  // farmland is inherently outside urban centers.
   const MAX_DIST_FROM_URBAN = 0.03; // ~3km
+  const MAX_DIST_AGRICULTURAL = 0.08; // ~8km
   const byType = {};
   for (const el of pois) {
     const coords = getCoords(el);
     if (!coords) continue;
     const dist = Math.hypot(coords[0] - urbanCenter[0], coords[1] - urbanCenter[1]);
-    if (dist > MAX_DIST_FROM_URBAN) continue;
     for (const type in TYPE_MATCHERS) {
-      if (matchesType(el.tags, type)) {
-        if (!byType[type]) byType[type] = [];
-        byType[type].push({ id: `${el.type}/${el.id}`, coords, tags: el.tags, distFromUrban: dist });
-      }
+      if (!matchesType(el.tags, type)) continue;
+      const maxDist = type === 'agricultural' ? MAX_DIST_AGRICULTURAL : MAX_DIST_FROM_URBAN;
+      if (dist > maxDist) continue;
+      if (!byType[type]) byType[type] = [];
+      byType[type].push({ id: `${el.type}/${el.id}`, coords, tags: el.tags, distFromUrban: dist });
     }
   }
 
@@ -307,25 +398,26 @@ export async function resolveScenarioLocations(scenarioLocations, center) {
     }
     if (candidates.length === 0) continue;
 
-    // Pick the candidate that maximizes minimum distance to already-placed points (spread)
+    // Score candidates: name-keyword match (highest weight) + spread + center proximity
     let best = null;
     let bestScore = -Infinity;
     for (const cand of candidates) {
-      let minDist = Infinity;
+      const nameBonus = nameMatchScore(loc, cand.tags || {});
+      let spread = Infinity;
       for (const p of placed) {
         const d = Math.hypot(cand.coords[0] - p[0], cand.coords[1] - p[1]);
-        if (d < minDist) minDist = d;
+        if (d < spread) spread = d;
       }
+      let score;
       if (placed.length === 0) {
-        // Prefer candidates closer to urban center for the first pick
-        minDist = -Math.hypot(cand.coords[0] - urbanCenter[0], cand.coords[1] - urbanCenter[1]);
+        // First pick: prefer name match, then proximity to urban center
+        score = nameBonus - Math.hypot(cand.coords[0] - urbanCenter[0], cand.coords[1] - urbanCenter[1]) * 1000;
       } else {
-        // For subsequent picks: maximize spread but penalize distance from urban center
-        const urbanPenalty = Math.hypot(cand.coords[0] - urbanCenter[0], cand.coords[1] - urbanCenter[1]) * 0.5;
-        minDist = minDist - urbanPenalty;
+        const urbanPenalty = Math.hypot(cand.coords[0] - urbanCenter[0], cand.coords[1] - urbanCenter[1]) * 500;
+        score = nameBonus + spread * 1000 - urbanPenalty;
       }
-      if (minDist > bestScore) {
-        bestScore = minDist;
+      if (score > bestScore) {
+        bestScore = score;
         best = cand;
       }
     }

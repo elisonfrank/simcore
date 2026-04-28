@@ -66,10 +66,18 @@ class Agent:
         memory_context = self.memory.get_context()
         persona_prompt = self.persona.to_prompt()
 
+        if self.state.energy < 0.15:
+            energy_desc = "CRITICAL — you are exhausted, you MUST rest this turn"
+        elif self.state.energy < 0.3:
+            energy_desc = "low — consider resting soon"
+        elif self.state.energy > 0.6:
+            energy_desc = "high"
+        else:
+            energy_desc = "moderate"
         state_desc = (
             f"Current state: You are at {self.state.location}. "
             f"Mood: {'positive' if self.state.mood > 0.2 else 'negative' if self.state.mood < -0.2 else 'neutral'}. "
-            f"Energy: {'high' if self.state.energy > 0.6 else 'low' if self.state.energy < 0.3 else 'moderate'}."
+            f"Energy: {energy_desc}."
         )
         if self.state.resources:
             resources_str = ", ".join(f"{k}: {v}" for k, v in self.state.resources.items())
@@ -134,19 +142,31 @@ Target rules (strict):
                 self.state.location = action.target
             case ActionType.REST:
                 self.state.energy = min(1.0, self.state.energy + 0.3)
+                self.state.mood = min(1.0, self.state.mood + 0.05)
             case ActionType.WORK:
                 self.state.energy = max(0.0, self.state.energy - 0.2)
+            case ActionType.SPEAK | ActionType.INTERACT:
+                self.state.mood = min(1.0, self.state.mood + 0.03)
+
+    def apply_tick_decay(self) -> None:
+        """Apply per-tick passive decay: energy drains, mood drifts toward neutral."""
+        self.state.energy = max(0.0, self.state.energy - 0.008)
+        # Slow drift toward 0 — isolation or routine pulls mood to neutral
+        if self.state.mood > 0:
+            self.state.mood = max(0.0, self.state.mood - 0.004)
+        elif self.state.mood < 0:
+            self.state.mood = min(0.0, self.state.mood + 0.004)
 
     def to_dict(self) -> dict:
         """Serialize agent state for storage/streaming."""
+        relationships = {
+            name: rel.describe()
+            for name, rel in self.memory.relationships.items()
+        }
         return {
             "id": self.id,
             "name": self.name,
             "location": self.state.location,
-            "mood": self.state.mood,
-            "energy": self.state.energy,
-            "resources": self.state.resources,
-            "current_action": self.state.current_action.describe() if self.state.current_action else None,
             "personality": {
                 "openness": self.persona.personality.openness,
                 "conscientiousness": self.persona.personality.conscientiousness,
@@ -154,5 +174,13 @@ Target rules (strict):
                 "agreeableness": self.persona.personality.agreeableness,
                 "neuroticism": self.persona.personality.neuroticism,
             },
+            "state": {
+                "mood": self.state.mood,
+                "energy": self.state.energy,
+                "location": self.state.location,
+                "current_action": self.state.current_action.describe() if self.state.current_action else None,
+                "resources": self.state.resources,
+            },
+            "relationships": relationships,
             "memory_summary": self.memory.get_context(max_entries=5),
         }

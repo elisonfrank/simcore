@@ -6,6 +6,7 @@ import Timeline from './components/Timeline';
 import LogStream from './components/LogStream';
 import EventInjector from './components/EventInjector';
 import PostMortem from './components/PostMortem';
+import BreakingBanner from './components/BreakingBanner';
 import { resolveScenarioLocations, findUrbanCenterByName } from './lib/osm';
 import { useT, translateLocation } from './lib/i18n.jsx';
 
@@ -17,7 +18,7 @@ const AGENT_COLORS = [
 
 function App() {
   const { t, lang, setLang } = useT();
-  const { state, events, connected, injectEvent, control } = useSimulation();
+  const { state, events, connected, injectEvent, control, lastSignificantEvent } = useSimulation();
   const [selectedAgentId, setSelectedAgentId] = useState(null);
   const [mapCenter, setMapCenter] = useState(null);
   const [locationLabel, setLocationLabel] = useState('');
@@ -178,7 +179,7 @@ function App() {
     if (!mapCenter || !scenarioLocKeys || !locationLabel) return;
     const locs = state?.environment?.locations;
     if (!locs) return;
-    const cacheKey = `simcore:osm:v6:${locationLabel}:${scenarioLocKeys}`;
+    const cacheKey = `simcore:osm:v8:${locationLabel}:${scenarioLocKeys}`;
 
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
@@ -423,6 +424,8 @@ function App() {
           </div>
         )}
       </div>
+
+      <BreakingBanner event={lastSignificantEvent} />
 
       {/* Post-mortem overlay */}
       {showPostMortem && (

@@ -110,6 +110,12 @@ const DICTIONARIES = {
     'location.Art Room': 'Art Room',
     'location.Principal\'s Office': "Principal's Office",
 
+    // Breaking moment banner
+    'banner.scheduledEvent': 'World event',
+    'banner.injectedEvent': 'Injected event',
+    'banner.interaction': 'Interaction',
+    'banner.event': 'Event',
+
     // Post-mortem
     'postmortem.title': 'Simulation complete',
     'postmortem.subtitle': 'What happened during these {ticks} ticks',
@@ -125,6 +131,9 @@ const DICTIONARIES = {
     'postmortem.stats.interactions': 'Interactions',
     'postmortem.stats.llmCalls': 'LLM calls',
     'postmortem.stats.cacheRate': 'Cache hit rate',
+    'postmortem.narrative': 'The story',
+    'postmortem.narrative.loading': 'Generating narrative...',
+    'postmortem.narrative.unavailable': 'Narrative unavailable.',
     'postmortem.close': 'Close',
     'postmortem.replay': 'Replay',
   },
@@ -237,6 +246,12 @@ const DICTIONARIES = {
     'location.Art Room': 'Sala de Artes',
     'location.Principal\'s Office': 'Sala do Diretor',
 
+    // Breaking moment banner
+    'banner.scheduledEvent': 'Evento do mundo',
+    'banner.injectedEvent': 'Evento injetado',
+    'banner.interaction': 'Interação',
+    'banner.event': 'Evento',
+
     // Post-mortem
     'postmortem.title': 'Simulação concluída',
     'postmortem.subtitle': 'O que aconteceu durante estes {ticks} ticks',
@@ -252,6 +267,9 @@ const DICTIONARIES = {
     'postmortem.stats.interactions': 'Interações',
     'postmortem.stats.llmCalls': 'Chamadas LLM',
     'postmortem.stats.cacheRate': 'Taxa de cache hit',
+    'postmortem.narrative': 'A história',
+    'postmortem.narrative.loading': 'Gerando narrativa...',
+    'postmortem.narrative.unavailable': 'Narrativa indisponível.',
     'postmortem.close': 'Fechar',
     'postmortem.replay': 'Replay',
   },

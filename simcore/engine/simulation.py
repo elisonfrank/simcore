@@ -7,7 +7,7 @@ import logging
 import random
 from typing import Any
 
-from simcore.agents.actions import ActionType
+from simcore.agents.actions import Action, ActionType
 from simcore.agents.agent import Agent, AgentState
 from simcore.agents.persona import Persona, PersonalityTraits
 from simcore.config.schema import SimulationConfig
@@ -164,9 +164,13 @@ class SimulationEngine:
                     if result and action.type != ActionType.SPEAK:
                         await self.event_bus.emit(SimEvent(
                             type=EventType.INTERACTION, tick=tick,
-                            data={"result": result.description},
+                            data={"result": result.description, "content": action.content},
                             source=agent.name,
                         ))
+
+        # Per-tick passive decay for all agents
+        for agent in self.agents.values():
+            agent.apply_tick_decay()
 
         # Periodic reflection (every 12 ticks = ~12 hours at 1h/tick)
         if tick % 12 == 0 and tick > 0:
@@ -197,6 +201,10 @@ class SimulationEngine:
             )
             if not moved:
                 action.content = f"Tried to move to {action.target} but couldn't"
+        elif action.type in (ActionType.SPEAK, ActionType.TRADE, ActionType.INTERACT):
+            target = self._find_agent_by_name(action.target)
+            if not target or target.location != agent.location:
+                action = Action(type=ActionType.WAIT, reasoning="Target not present at this location")
 
         agent.apply_action(action, tick)
 
@@ -256,21 +264,19 @@ class SimulationEngine:
 
     async def _process_scheduled_events(self, tick: int) -> None:
         """Process events scheduled for this tick."""
+        lang = getattr(self.config, "language", "en")
         for event_cfg in self.config.events.scheduled:
             if event_cfg.tick == tick:
-                logger.info(f"Scheduled event at tick {tick}: {event_cfg.description}")
-                self.environment.log_event(
-                    tick, event_cfg.type, event_cfg.description,
-                )
-                # Notify all agents about the event
+                description = event_cfg.description
+                if lang != "en":
+                    description = await self.llm.translate(description, lang)
+                logger.info(f"Scheduled event at tick {tick}: {description}")
+                self.environment.log_event(tick, event_cfg.type, description)
                 for agent in self.agents.values():
-                    agent.observe(
-                        f"World event: {event_cfg.description}",
-                        tick, importance=0.8,
-                    )
+                    agent.observe(f"World event: {description}", tick, importance=0.8)
                 await self.event_bus.emit(SimEvent(
                     type=EventType.SCHEDULED_EVENT, tick=tick,
-                    data={"description": event_cfg.description, "effects": event_cfg.effects},
+                    data={"description": description, "effects": event_cfg.effects},
                 ))
 
     async def inject_event(self, description: str, location: str = "") -> None:

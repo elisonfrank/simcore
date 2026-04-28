@@ -18,6 +18,18 @@ const KEY_MOMENT_TYPES = new Set([
 export default function PostMortem({ state, events, firstState, onClose, onReplay }) {
   const { t } = useT();
   const [fetchedEvents, setFetchedEvents] = useState(null);
+  const [narrative, setNarrative] = useState(null);
+  const [narrativeLoading, setNarrativeLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/postmortem/narrative', { method: 'POST' })
+      .then((r) => r.json())
+      .then((data) => {
+        setNarrative(data.narrative || null);
+        setNarrativeLoading(false);
+      })
+      .catch(() => setNarrativeLoading(false));
+  }, []);
 
   // If live events array is sparse (e.g. user refreshed after sim ended),
   // fetch the full log from the backend.
@@ -73,7 +85,7 @@ export default function PostMortem({ state, events, firstState, onClose, onRepla
     const actionEvents = allEvents?.filter((e) =>
       ['agent_speak', 'agent_move', 'agent_action', 'interaction'].includes(e.type)
     ) || [];
-    const interactions = allEvents?.filter((e) => e.type === 'interaction').length || 0;
+    const interactions = allEvents?.filter((e) => ['interaction', 'agent_speak'].includes(e.type)).length || 0;
     const llmStats = state?.llm_stats || {};
     return {
       totalActions: actionEvents.length,
@@ -112,6 +124,18 @@ export default function PostMortem({ state, events, firstState, onClose, onRepla
         </div>
 
         <div style={styles.content}>
+          {/* Narrative hero */}
+          <section style={styles.section}>
+            <div style={styles.sectionTitle}>{t('postmortem.narrative')}</div>
+            {narrativeLoading ? (
+              <div style={styles.narrativeLoading}>{t('postmortem.narrative.loading')}</div>
+            ) : narrative ? (
+              <div style={styles.narrativeText}>{narrative}</div>
+            ) : (
+              <div style={styles.empty}>{t('postmortem.narrative.unavailable')}</div>
+            )}
+          </section>
+
           {/* Agent arcs */}
           <section style={styles.section}>
             <div style={styles.sectionTitle}>{t('postmortem.arcs')}</div>
@@ -376,6 +400,21 @@ const styles = {
     color: 'var(--text-2)',
     marginTop: 4,
     lineHeight: 1.4,
+  },
+  narrativeText: {
+    fontSize: 14,
+    lineHeight: 1.8,
+    color: 'var(--text-1)',
+    padding: '18px 22px',
+    background: 'rgba(124,106,255,0.05)',
+    border: '1px solid rgba(124,106,255,0.15)',
+    borderRadius: 'var(--radius-md)',
+    whiteSpace: 'pre-wrap',
+  },
+  narrativeLoading: {
+    fontSize: 12,
+    color: 'var(--text-3)',
+    fontStyle: 'italic',
   },
   momentList: {
     display: 'flex',

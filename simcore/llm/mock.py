@@ -134,7 +134,31 @@ class MockLLMProvider:
             reasoning="Nothing interesting to do right now",
         )
 
-    async def reflect(self, memories: str) -> str:
+    async def translate(self, text: str, language: str) -> str:
+        return text  # demo mode — no translation
+
+    async def generate_narrative(self, data: dict, language: str = "en") -> str:
+        self._call_count += 1
+        agents = data.get("agents", [])
+        names = [a["name"] for a in agents]
+        ticks = data.get("ticks", 0)
+        pair = f"{names[0]} and {names[1]}" if len(names) >= 2 else (names[0] if names else "The agents")
+        pair_pt = f"{names[0]} e {names[1]}" if len(names) >= 2 else (names[0] if names else "Os agentes")
+        if language == "pt":
+            return (
+                f"Durante {ticks} ciclos de simulação, os agentes navegaram por um mundo em constante mudança. "
+                f"{pair_pt} cruzaram caminhos diversas vezes, construindo laços e enfrentando desafios inesperados.\n\n"
+                "As interações revelaram a complexidade das relações sociais — alguns prosperaram pela colaboração, "
+                "outros preferiram a independência. No fim, cada trajetória deixou uma marca distinta no tecido social da simulação."
+            )
+        return (
+            f"Over {ticks} ticks, the agents navigated a world in constant flux. "
+            f"{pair} crossed paths repeatedly, forging connections and facing unexpected challenges along the way.\n\n"
+            "The interactions revealed the complexity of social dynamics — some agents thrived through collaboration, "
+            "while others charted independent courses. By the end, each trajectory had left a distinct mark on the simulation."
+        )
+
+    async def reflect(self, memories: str, language: str = "en") -> str:
         self._call_count += 1
         reflections = [
             "I've been socializing more lately. Building relationships is key to success here.",

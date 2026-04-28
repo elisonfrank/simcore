@@ -74,7 +74,7 @@ const styles = {
   },
   row: {
     display: 'flex',
-    alignItems: 'baseline',
+    alignItems: 'flex-start',
     gap: 10,
     padding: '4px 0',
     fontSize: 11,
@@ -103,8 +103,7 @@ const styles = {
   content: {
     color: 'var(--text-1)',
     flex: 1,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
+    whiteSpace: 'normal',
+    wordBreak: 'break-word',
   },
 };

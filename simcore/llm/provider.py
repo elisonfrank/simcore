@@ -112,6 +112,84 @@ class LLMProvider:
             logger.warning(f"LLM call failed: {e}. Returning WAIT action.")
             return Action(type=ActionType.WAIT, reasoning=f"LLM error: {e}")
 
+    async def translate(self, text: str, language: str) -> str:
+        """Translate text to the given language. Returns original if language is English."""
+        if language == "en":
+            return text
+        from simcore.llm.prompts import language_directive as lang_dir, LANGUAGE_NAMES
+        lang_name = LANGUAGE_NAMES.get(language, language)
+        self._call_count += 1
+        try:
+            response = await litellm.acompletion(
+                model=self.reflection_model,
+                messages=[
+                    {"role": "system", "content": (
+                        f"You are a translator. Translate the text to {lang_name}. "
+                        "Output ONLY the translated text — no quotes, no explanations, no extra content."
+                    )},
+                    {"role": "user", "content": text},
+                ],
+                temperature=0.2,
+                max_tokens=200,
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            logger.warning(f"Translation failed: {e}")
+            return text
+
+    async def generate_narrative(self, data: dict, language: str = "en") -> str:
+        """Generate a post-mortem narrative paragraph from simulation summary data."""
+        from simcore.llm.prompts import language_directive as lang_dir
+
+        agents_lines = []
+        for a in data.get("agents", []):
+            line = f"- {a['name']}: mood {a['mood']:+.2f}, energy {a['energy']:.0%}"
+            if a.get("reflections"):
+                line += f"; reflections: {'; '.join(a['reflections'])}"
+            if a.get("relationships"):
+                line += f"; relationships: {', '.join(a['relationships'])}"
+            agents_lines.append(line)
+
+        events_lines = [
+            f"[t{e['tick']}] {e['source'] or e['type']}: {e['summary']}"
+            for e in data.get("key_events", [])
+            if e.get("summary")
+        ]
+
+        system = (
+            "You are a journalist writing a vivid chronicle about a social simulation.\n\n"
+            "Write 2 to 3 paragraphs of engaging prose that tell the story of what happened. "
+            "Highlight character arcs, key events, and how relationships evolved. "
+            "Write in a vivid, literary style — like a short story or news chronicle. "
+            "Reference specific agent names and concrete moments from the data. "
+            "Plain prose only. No headers, no bullet points, no JSON, no markdown.\n\n"
+            f"{lang_dir(language)}"
+        )
+        user = (
+            f"The simulation ran for {data.get('ticks', 0)} ticks.\n\n"
+            f"Agent final states:\n" + "\n".join(agents_lines) + "\n\n"
+            + (f"Notable events:\n" + "\n".join(events_lines) + "\n\n" if events_lines else "")
+            + "Write the chronicle now.\n\n"
+            f"{lang_dir(language)}"
+        )
+
+        self._call_count += 1
+        try:
+            response = await litellm.acompletion(
+                model=self.reflection_model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                temperature=0.65,
+                max_tokens=800,
+            )
+            text = response.choices[0].message.content.strip()
+            return _strip_json_artifacts(text)
+        except Exception as e:
+            logger.warning(f"Narrative generation failed: {e}")
+            raise
+
     async def reflect(self, memories: str, language: str = "en") -> str:
         """Generate a reflection summary from recent memories."""
         from simcore.llm.prompts import language_directive

@@ -56,6 +56,9 @@ export default function MapView({ state, selectedAgent, onSelectAgent, mapCenter
       zoomControl: false,
       attributionControl: false,
       preferCanvas: true,
+      zoomSnap: 0.25,
+      zoomDelta: 0.5,
+      wheelPxPerZoomLevel: 120,
     });
 
     L.tileLayer(DARK_TILES, { maxZoom: 19, opacity: 0.85 }).addTo(map);

@@ -129,6 +129,59 @@ def create_app(engine: SimulationEngine | None = None) -> FastAPI:
         server_state["engine"].config.language = lang
         return {"status": "ok", "language": lang}
 
+    @app.post("/api/postmortem/narrative")
+    async def postmortem_narrative():
+        engine = server_state["engine"]
+        if not engine:
+            return {"error": "No simulation loaded"}
+
+        lang = getattr(engine.config, "language", "en")
+        state = engine.get_state()
+        ticks = state.get("clock", {}).get("tick", 0)
+
+        agents_data = []
+        for agent in engine.agents.values():
+            rels = sorted(
+                agent.memory.relationships.values(),
+                key=lambda r: r.interactions,
+                reverse=True,
+            )[:3]
+            reflections = (agent.memory._reflection_summaries or [])[-2:]
+            agents_data.append({
+                "name": agent.name,
+                "mood": round(agent.state.mood, 2),
+                "energy": round(agent.state.energy, 2),
+                "reflections": reflections,
+                "relationships": [r.describe() for r in rels],
+            })
+
+        all_events = engine.event_bus.get_log(500)
+        key_events = [
+            {
+                "tick": e.get("tick", 0),
+                "type": e.get("type", ""),
+                "source": e.get("source", ""),
+                "summary": (
+                    e.get("data", {}).get("description")
+                    or e.get("data", {}).get("summary")
+                    or e.get("data", {}).get("result")
+                    or e.get("data", {}).get("action")
+                    or ""
+                )[:120],
+            }
+            for e in all_events
+            if e.get("type") in ("interaction", "scheduled_event", "injected_event", "reflection")
+        ][-15:]
+
+        data = {"ticks": ticks, "agents": agents_data, "key_events": key_events}
+
+        try:
+            narrative = await engine.llm.generate_narrative(data, lang)
+            return {"narrative": narrative}
+        except Exception as e:
+            logger.warning(f"Narrative generation failed: {e}")
+            return {"error": str(e)}
+
     @app.post("/api/control/{action}")
     async def control(action: str):
         if not server_state["engine"]:
