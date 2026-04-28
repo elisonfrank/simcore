@@ -1,113 +1,110 @@
-<p align="center">
-  <strong><span style="color: #00d4aa">Sim</span><span style="color: #7c5cfc">Core</span></strong>
-</p>
-
 <h1 align="center">SimCore</h1>
 
 <p align="center">
-  <strong>Open-source social simulation engine powered by LLM agents</strong>
+  <strong>Social simulation engine with autonomous LLM agents — running on a real map of your city</strong>
 </p>
 
 <p align="center">
   <a href="#quick-start">Quick Start</a> &bull;
   <a href="#scenarios">Scenarios</a> &bull;
   <a href="#how-it-works">How It Works</a> &bull;
-  <a href="#dashboard">Dashboard</a> &bull;
   <a href="#configuration">Configuration</a> &bull;
-  <a href="#api">API</a>
+  <a href="#llm-providers">LLM Providers</a>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.11+-blue?logo=python&logoColor=white" alt="Python 3.11+">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
-  <img src="https://img.shields.io/badge/LLM-multi--provider-purple" alt="Multi-LLM">
+  <img src="https://img.shields.io/badge/LLM-LiteLLM-purple" alt="LiteLLM">
   <img src="https://img.shields.io/badge/status-alpha-orange" alt="Alpha">
 </p>
 
 ---
 
-Create autonomous agents with personalities, memories, and goals. Drop them into a virtual world defined in YAML. Watch emergent behavior unfold in real-time through an interactive dashboard.
+> **"Town Square" becomes the actual square in your city. "Park" becomes a real park nearby. Every simulation is anchored to a real place — making emergent stories feel personal.**
 
-SimCore isn't a toy demo — it's a **framework** for running social simulations at any scale, with any LLM provider, on any scenario you can imagine.
+SimCore runs autonomous agents with memories, personalities, and goals inside a scenario you define. The dashboard renders everything on a live map pulled from OpenStreetMap, centered on wherever you are. Watch a disease outbreak unfold on the streets you know. Watch market dynamics play out in real locations.
+
+---
+
+<!-- Replace with actual screenshot/GIF -->
+![SimCore Dashboard — epidemic scenario running on a real city map](docs/screenshot.png)
+
+---
 
 ## Quick Start
 
 ```bash
-# Install
-pip install simcore-ai
+git clone https://github.com/elisonfrank/simcore
+cd simcore
+pip install -e ".[dev]"
+
+# Start the frontend
+cd dashboard && npm install && npm run dev &
 
 # Run a demo (no API key needed)
-simcore run scenarios/marketplace/config.yaml --dashboard --demo
-
-# Run with real LLM
-export OPENAI_API_KEY=sk-...
-simcore run scenarios/marketplace/config.yaml --dashboard
+cd ..
+python -m simcore.cli run scenarios/epidemic/config.yaml --dashboard --demo --speed 3.0 --port 8420
 ```
 
-Open `http://localhost:5173` and watch the simulation live.
+Open `http://localhost:5173` — the dashboard asks for your location, then resolves scenario places to real POIs near you.
 
-## What Happens
+---
 
-1. Agents wake up in their starting locations
-2. Each tick (1 simulated hour), every agent **observes** their surroundings, **thinks** using an LLM, and **acts**
-3. Agents talk to each other, trade, move between locations, work, rest
-4. Their **memories** accumulate — they remember conversations, form opinions, build relationships
-5. **Scheduled events** disrupt the world — a competitor opens, it starts raining, a crisis hits
-6. You can **inject events** mid-simulation through the dashboard
-7. Emergent stories arise from the interactions
+## What Makes It Different
+
+Most agent simulations run on abstract grids. SimCore runs on the real world:
+
+- **Real map** — Leaflet + CartoDB dark tiles, centered on your city via geolocation
+- **Real places** — scenario locations (Town Square, Park, Hospital) are matched to actual OSM POIs near you via Overpass API
+- **Autonomous agents** — each agent uses an LLM to observe, think, and act every tick. Parallel decisions, emergent conversations
+- **Breaking moments** — live banners when significant events fire mid-simulation
+- **Post-mortem narrative** — when the simulation ends, an LLM writes a chronicle of what happened, using the agents' actual actions and reflections
+
+---
 
 ## Scenarios
 
-SimCore ships with 4 ready-to-run scenarios:
+Four ready-to-run scenarios included:
 
-### Marketplace
-A local market economy with competing shops, consumers, and an incoming discount chain threat.
-- 5 agents: shop owners, consumers, a trader
-- Events: competitor announcement, heavy rain
-
-### Urban Life
-A day in a small city — politics, protests, infrastructure failures, and community bonds.
-- 6 agents: council member, engineer, hospital director, activist, cafe owner, journalist
-- Events: student protest, water main break, leaked document scandal
-
-### Outbreak
-A mysterious illness hits a small town. Residents face impossible choices between self-preservation and community.
-- 6 agents: the only doctor, the mayor, a teacher, a farmer, a pastor, the store owner who controls medicine supply
-- Events: first cases, panic buying, child falls ill, treatment found, aid arrives
-
-### High School
-Social dynamics, cliques, bullying, and the pressure to fit in.
-- 5 agents: popular leader, quiet artist, star athlete, class bully, overachiever
-- Events: public bullying incident, prom drama, academic breakdown
+| Scenario | Description | Agents |
+|---|---|---|
+| **Outbreak** | A mysterious illness spreads. The doctor, mayor, teacher, farmer, pastor and store owner must decide between self-interest and community | 6 |
+| **Marketplace** | Competing shops face a discount chain moving in. Who adapts, who collapses? | 5 |
+| **Urban Life** | A day in a small city — protests, infrastructure failures, political maneuvering | 6 |
+| **High School** | Social dynamics, cliques, and the pressure to fit in | 5 |
 
 ```bash
-simcore run scenarios/epidemic/config.yaml --dashboard --demo
+python -m simcore.cli run scenarios/epidemic/config.yaml --dashboard --demo --speed 3.0 --port 8420
 ```
+
+---
 
 ## How It Works
 
 ```
 Each Tick (1 simulated hour):
-┌──────────────────────────────────────────┐
-│  1. Clock advances                       │
-│  2. Scheduled events fire                │
-│  3. For each agent (parallel):           │
-│     Observe → Think (LLM) → Act         │
-│  4. Interactions resolve                 │
-│  5. Every 12 ticks: agents reflect       │
-│  6. State broadcasts via WebSocket       │
-└──────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│  1. Scheduled world events fire (translated  │
+│     to simulation language via LLM)          │
+│  2. All agents decide in parallel:           │
+│     Observe → Think (LLM) → Act             │
+│  3. Interactions resolve (same location only)│
+│  4. Mood, energy, relationships update       │
+│  5. Every 12 ticks: agents reflect           │
+│  6. State broadcasts via WebSocket           │
+└──────────────────────────────────────────────┘
 ```
 
 ### Agent Architecture
 
 Every agent has:
 
-- **Persona** — Name, age, profession, Big Five personality traits (OCEAN), goals, backstory
-- **Memory** — Short-term (recent events), long-term (important moments), relationships (sentiment toward other agents), periodic reflections
-- **State** — Current location, mood, energy, resources, current action
+- **Persona** — Name, age, profession, Big Five (OCEAN) personality traits, goals, backstory
+- **Memory** — Short-term (recent events), long-term (high-importance moments), relationships (sentiment toward others), periodic LLM reflections
+- **State** — Location, mood (−1 to 1), energy (0–100%), resources, current action
 
-The LLM receives the agent's full persona, memory context, and current observation, then decides what to do: move, speak, trade, work, rest, or observe.
+The LLM receives the full persona, memory context, and world observation, then decides: `move`, `speak`, `trade`, `work`, `rest`, or `observe`.
 
 ### Personality Model
 
@@ -121,18 +118,7 @@ Agents use the [Big Five (OCEAN)](https://en.wikipedia.org/wiki/Big_Five_persona
 | **Agreeableness** | Cooperative, trusting | Competitive, skeptical |
 | **Neuroticism** | Sensitive, anxious | Calm, resilient |
 
-These traits shape how agents make decisions, who they interact with, and how they respond to events.
-
-## Dashboard
-
-The real-time dashboard shows:
-
-- **Grid View** — Animated canvas with agents moving between locations, particle trails, glowing dots
-- **Agent Inspector** — Click any agent to see their thoughts, memory, mood, energy, personality, relationships
-- **Log Stream** — Live feed of every action, color-coded by type
-- **Timeline** — Play/pause/stop controls, progress bar, simulation clock
-- **Event Injector** — Type an event and inject it into the running simulation
-- **Stats Bar** — Agent count, average mood/energy, LLM call stats
+---
 
 ## Configuration
 
@@ -140,144 +126,143 @@ Scenarios are defined in YAML:
 
 ```yaml
 simulation:
-  name: "My Scenario"
+  name: "Outbreak"
   time_step: "1 hour"
-  duration: "3 days"
-  seed: 42
+  duration: "2 days"
+  seed: 77
+  language: pt   # agents speak and think in this language
+
+llm:
+  model: "ollama/qwen2.5:7b"   # or gpt-4o-mini, anthropic/claude-haiku-...
+  cache: true
+  temperature: 0.8
 
 environment:
-  type: grid
-  size: [20, 20]
   locations:
-    - name: "Town Square"
-      type: commercial
-      position: [10, 10]
-      capacity: 30
+    - name: "Town Clinic"
+      type: healthcare
+      capacity: 20
 
 agents:
-  - name: "Alice"
-    age: 30
-    profession: "shop owner"
+  - name: "Dr. Amara"
+    age: 38
+    profession: "physician"
     personality:
-      openness: 0.7
-      conscientiousness: 0.8
-      extraversion: 0.6
-      agreeableness: 0.5
-      neuroticism: 0.3
+      openness: 0.8
+      conscientiousness: 0.9
+      extraversion: 0.5
+      agreeableness: 0.7
+      neuroticism: 0.4
     goals:
-      - "maximize profit"
-      - "build customer loyalty"
-    starting_location: "Town Square"
-    backstory: "Alice opened her shop last year..."
-    resources:
-      money: 10000
+      - "contain the outbreak"
+      - "protect the vulnerable"
+    starting_location: "Town Clinic"
+    backstory: "The only doctor in town for the past 10 years."
 
 events:
   scheduled:
-    - tick: 24
-      type: "crisis"
-      description: "A fire breaks out in the market"
-  injectable: true
+    - tick: 12
+      type: crisis
+      description: "Three residents arrive at the clinic with high fever and difficulty breathing."
 ```
 
-Create a new scenario:
-
-```bash
-simcore init my-scenario --template marketplace
-```
+---
 
 ## LLM Providers
 
-SimCore uses [LiteLLM](https://github.com/BerriAI/litellm) under the hood, supporting:
+SimCore uses [LiteLLM](https://github.com/BerriAI/litellm) — any provider it supports works here:
 
-| Provider | Model Example | Env Variable |
+| Provider | Example model | Key |
 |---|---|---|
-| OpenAI | `gpt-4o-mini` | `OPENAI_API_KEY` |
-| Anthropic | `claude-sonnet-4-20250514` | `ANTHROPIC_API_KEY` |
-| Ollama | `ollama/llama3` | (local, no key) |
-| Any LiteLLM provider | See [docs](https://docs.litellm.ai/docs/providers) | Varies |
-
-**Demo mode** (`--demo`) uses a built-in rule-based engine — no API key needed.
-
-## CLI Reference
+| **Ollama** (local) | `ollama/qwen2.5:7b` | none |
+| **OpenAI** | `gpt-4o-mini` | `OPENAI_API_KEY` |
+| **Anthropic** | `anthropic/claude-haiku-4-5-20251001` | `ANTHROPIC_API_KEY` |
+| **Demo mode** | built-in mock | none |
 
 ```bash
-# Run simulation with dashboard
-simcore run config.yaml --dashboard
+# Local (Ollama)
+ollama pull qwen2.5:7b
+python -m simcore.cli run scenarios/epidemic/config.yaml --dashboard
 
-# Demo mode (no API key)
-simcore run config.yaml --dashboard --demo
-
-# Headless (fast, no UI)
-simcore run config.yaml --headless --output results/
-
-# Control speed
-simcore run config.yaml --dashboard --speed 2.0
-
-# Replay saved simulation
-simcore replay results/sim_20260422.db
-
-# Create new scenario
-simcore init my-scenario --template marketplace
+# Cloud
+export ANTHROPIC_API_KEY=sk-ant-...
+python -m simcore.cli run scenarios/epidemic/config.yaml --dashboard --speed 2.0
 ```
+
+---
+
+## Dashboard
+
+- **Real map** — agents rendered as avatars on actual city streets, anchored below their location pin
+- **Agent inspector** — click any agent to see live mood, energy, personality, memory, relationships
+- **Activity log** — live feed of every action, color-coded by type
+- **Event injector** — type any event mid-simulation ("A fire breaks out at the market")
+- **Breaking banner** — appears when significant events fire
+- **Post-mortem** — agent arcs, relationships formed, key moments, LLM-generated narrative
+
+---
 
 ## API
 
 When running with `--dashboard`, SimCore exposes a REST + WebSocket API:
 
 ```
-GET  /api/state          — Full simulation state
-GET  /api/agents         — All agents
-GET  /api/agents/:id     — Single agent details
-GET  /api/clock          — Current time/tick
-POST /api/inject         — Inject event {"description": "...", "location": "..."}
-POST /api/control/pause  — Pause simulation
-POST /api/control/resume — Resume simulation
-POST /api/control/stop   — Stop simulation
-WS   /ws                 — Real-time event stream
+GET  /api/state                  — Full simulation state
+GET  /api/agents                 — All agents
+GET  /api/events?last_n=100      — Event log
+POST /api/inject                 — Inject event {"description": "...", "location": "..."}
+POST /api/postmortem/narrative   — Generate LLM narrative from run data
+POST /api/language               — Switch simulation language at runtime
+POST /api/control/pause|resume|stop
+WS   /ws                         — Real-time event stream
 ```
+
+---
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Core Engine | Python 3.11+, asyncio |
-| LLM | LiteLLM (unified multi-provider) |
+| Engine | Python 3.11+, asyncio |
+| LLM | LiteLLM (multi-provider) |
 | API | FastAPI + WebSocket |
-| Dashboard | React + Vite + Canvas |
-| Storage | SQLite (async, via aiosqlite) |
-| Config | YAML + Pydantic validation |
+| Dashboard | React + Vite |
+| Map | Leaflet + OpenStreetMap (Overpass API) |
+| Storage | SQLite (aiosqlite) |
+| Config | YAML + Pydantic |
 | CLI | Click |
+
+---
 
 ## Project Structure
 
 ```
 simcore/
-├── simcore/           # Python package
-│   ├── engine/        # Simulation loop, clock, events
-│   ├── agents/        # Agent, persona, memory, actions
-│   ├── world/         # Environment, locations, interactions
-│   ├── llm/           # LLM provider, prompts, cache, mock
-│   ├── config/        # YAML loader, Pydantic schemas
-│   ├── storage/       # SQLite persistence
-│   ├── server/        # FastAPI + WebSocket
-│   └── cli.py         # CLI entry point
-├── dashboard/         # React frontend
-├── scenarios/         # Ready-to-run YAML scenarios
-└── tests/             # Test suite
+├── simcore/
+│   ├── engine/      # Simulation loop, clock, event bus
+│   ├── agents/      # Agent, persona, memory, actions
+│   ├── world/       # Environment, locations, interactions
+│   ├── llm/         # LiteLLM provider, prompts, cache, mock
+│   ├── config/      # YAML loader, Pydantic schemas
+│   ├── storage/     # SQLite persistence
+│   ├── server/      # FastAPI + WebSocket API
+│   └── cli.py
+├── dashboard/       # React + Vite frontend
+├── scenarios/       # marketplace, epidemic, city, school
+└── tests/           # 37 tests
 ```
+
+---
 
 ## Contributing
 
-SimCore is open source under the MIT license. Contributions welcome.
+MIT licensed. PRs welcome.
 
 ```bash
-git clone https://github.com/yourusername/simcore.git
+git clone https://github.com/elisonfrank/simcore
 cd simcore
 pip install -e ".[dev]"
 pytest
 ```
 
-## License
-
-MIT
+Issues, scenario ideas, and feedback welcome at [github.com/elisonfrank/simcore/issues](https://github.com/elisonfrank/simcore/issues).
