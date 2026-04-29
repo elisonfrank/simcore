@@ -267,8 +267,8 @@ class SimulationEngine:
         lang = getattr(self.config, "language", "en")
         for event_cfg in self.config.events.scheduled:
             if event_cfg.tick == tick:
-                description = event_cfg.description
-                if lang != "en":
+                description = event_cfg.translations.get(lang) or event_cfg.description
+                if lang != "en" and not event_cfg.translations.get(lang):
                     description = await self.llm.translate(description, lang)
                 logger.info(f"Scheduled event at tick {tick}: {description}")
                 self.environment.log_event(tick, event_cfg.type, description)

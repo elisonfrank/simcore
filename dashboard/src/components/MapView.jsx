@@ -132,8 +132,8 @@ export default function MapView({ state, selectedAgent, onSelectAgent, mapCenter
         const marker = L.marker(geo, {
           icon: buildLocationIcon(displayName, loc, osmName, typeLabel),
           interactive: true,
-          zIndexOffset: 200,
-          riseOnHover: true,
+          zIndexOffset: 600,
+          riseOnHover: false,
         });
         marker.addTo(map);
         locationMarkersRef.current[name] = marker;
@@ -195,6 +195,8 @@ export default function MapView({ state, selectedAgent, onSelectAgent, mapCenter
       byLocation[loc].push(id);
     });
 
+    const placedAgentPositions = []; // accumulate as agents are placed
+
     agentIds.forEach((id, globalIdx) => {
       const agent = agents[id];
       const locName = agent.state?.location || agent.location;
@@ -205,20 +207,35 @@ export default function MapView({ state, selectedAgent, onSelectAgent, mapCenter
       const idxInGroup = locGroup.indexOf(id);
       const total = locGroup.length;
 
-      // Fan agents BELOW the pin (south-facing arc) — never above.
-      // Constant pixel distance via zoom-adaptive radius.
+      // Fan agents in a south-facing arc, collision-checked against other pins.
       const zoomScale = Math.pow(2, 15 - currentZoom);
-      const orbitRadius = (0.0009 + total * 0.00025) * zoomScale;
-      const arcWidth = Math.PI * 2 / 3; // 120° arc below
+      const orbitRadius = (0.002 + total * 0.0005) * zoomScale;
+      const arcWidth = Math.PI * 2 / 3;
       const startAngle = -Math.PI / 2 - arcWidth / 2;
       const step = total > 1 ? arcWidth / (total - 1) : 0;
-      const angle = total === 1 ? -Math.PI / 2 : startAngle + step * idxInGroup;
-      // Note: `sin(angle)` is the LAT offset (negative = south).
-      // We negate so negative sin → lower lat → visually south (below).
-      const targetGeo = [
-        locCenter[0] + orbitRadius * Math.sin(angle),
-        locCenter[1] + orbitRadius * Math.cos(angle),
-      ];
+      const preferredAngle = total === 1 ? -Math.PI / 2 : startAngle + step * idxInGroup;
+
+      // Collision threshold: ~half a pin width in geo degrees
+      const collisionThresh = 0.0015 * zoomScale;
+      const otherPins = Object.entries(locGeo).filter(([n]) => n !== locName).map(([, c]) => c);
+      const agentThresh = 0.001 * zoomScale;
+
+      function geoAt(angle, r) {
+        return [locCenter[0] + r * Math.sin(angle), locCenter[1] + r * Math.cos(angle)];
+      }
+      function tooClose(pos) {
+        const hitPin = otherPins.some(p => Math.hypot(pos[0] - p[0], pos[1] - p[1]) < collisionThresh);
+        const hitAgent = placedAgentPositions.some(p => Math.hypot(pos[0] - p[0], pos[1] - p[1]) < agentThresh);
+        return hitPin || hitAgent;
+      }
+
+      let targetGeo = geoAt(preferredAngle, orbitRadius);
+      if (tooClose(targetGeo)) {
+        const candidates = Array.from({ length: 16 }, (_, i) => preferredAngle + (i + 1) * (Math.PI * 2 / 16));
+        const safe = candidates.find(a => !tooClose(geoAt(a, orbitRadius)));
+        targetGeo = geoAt(safe ?? preferredAngle, safe ? orbitRadius : orbitRadius * 1.8);
+      }
+      placedAgentPositions.push(targetGeo);
 
       const color = AGENT_COLORS[globalIdx % AGENT_COLORS.length];
       const name = agent.name || agent.persona?.name || 'Agent';
@@ -283,7 +300,7 @@ export default function MapView({ state, selectedAgent, onSelectAgent, mapCenter
         }
       } else {
         const icon = createAgentIcon(name, color, isSelected, action);
-        const marker = L.marker(targetGeo, { icon, zIndexOffset: isSelected ? 1000 : 100 });
+        const marker = L.marker(targetGeo, { icon, zIndexOffset: isSelected ? 1200 : 300 });
         marker.on('click', () => onSelectAgent?.(id));
         marker.addTo(layer);
         agentMarkersRef.current[id] = marker;
@@ -292,7 +309,7 @@ export default function MapView({ state, selectedAgent, onSelectAgent, mapCenter
       }
 
       if (agentMarkersRef.current[id]) {
-        agentMarkersRef.current[id].setZIndexOffset(isSelected ? 1000 : 100);
+        agentMarkersRef.current[id].setZIndexOffset(isSelected ? 1000 : 500);
       }
     });
 

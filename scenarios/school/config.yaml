@@ -21,6 +21,7 @@ environment:
       capacity: 40
       properties:
         description: "The central corridor where everyone passes between classes"
+        parent: "High School"
 
     - name: "Cafeteria"
       type: social
@@ -28,6 +29,7 @@ environment:
       capacity: 50
       properties:
         description: "Lunchroom — where social hierarchies are most visible"
+        parent: "High School"
 
     - name: "Library"
       type: education
@@ -35,6 +37,7 @@ environment:
       capacity: 20
       properties:
         description: "Quiet study space, refuge for introverts"
+        parent: "High School"
 
     - name: "Sports Field"
       type: recreation
@@ -42,6 +45,7 @@ environment:
       capacity: 30
       properties:
         description: "Football field and track — the athletes' territory"
+        parent: "High School"
 
     - name: "Art Room"
       type: education
@@ -49,6 +53,7 @@ environment:
       capacity: 15
       properties:
         description: "Creative space with paint-stained tables and indie music"
+        parent: "High School"
 
     - name: "Principal's Office"
       type: administrative
@@ -56,6 +61,7 @@ environment:
       capacity: 10
       properties:
         description: "Where conflicts are resolved — or escalated"
+        parent: "High School"
 
 agents:
   - name: "Zoe"
@@ -153,18 +159,24 @@ events:
     - tick: 12
       type: "social_conflict"
       description: "Tyler publicly mocks Leo's artwork in the cafeteria. Several students laugh. Maya witnesses it but says nothing."
+      translations:
+        pt: "Tyler zomba publicamente do trabalho artístico de Leo na cantina. Vários alunos riem. Maya testemunha, mas não diz nada."
       effects:
         bullying_incident: true
 
     - tick: 36
       type: "social_event"
       description: "Prom committee meeting in the cafeteria. Zoe wants to exclude certain people. Tensions rise over the guest list."
+      translations:
+        pt: "Reunião do comitê do baile na cantina. Zoe quer excluir certas pessoas. As tensões aumentam por causa da lista de convidados."
       effects:
         prom_drama: true
 
     - tick: 54
       type: "revelation"
       description: "Priya has a breakdown in the library — caught cheating on a test for the first time. The pressure finally cracked her."
+      translations:
+        pt: "Priya tem um colapso na biblioteca — flagrada colando numa prova pela primeira vez. A pressão finalmente a quebrou."
       effects:
         academic_crisis: true
 

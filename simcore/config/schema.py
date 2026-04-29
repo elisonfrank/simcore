@@ -44,6 +44,7 @@ class ScheduledEventConfig(BaseModel):
     type: str
     description: str
     effects: dict[str, object] = Field(default_factory=dict)
+    translations: dict[str, str] = Field(default_factory=dict)
 
 
 class EventsConfig(BaseModel):

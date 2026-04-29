@@ -161,12 +161,16 @@ events:
     - tick: 24
       type: "market_change"
       description: "A large discount chain announces it will open a store in the Electronics District next week. Rumors spread through the market."
+      translations:
+        pt: "Uma grande rede de desconto anuncia que abrirá uma loja no Distrito Eletrônico na próxima semana. Rumores se espalham pelo mercado."
       effects:
         market_anxiety: true
 
     - tick: 48
       type: "weather"
       description: "Heavy rain forces outdoor vendors to close temporarily. Only indoor shops remain open."
+      translations:
+        pt: "Chuva forte obriga os vendedores ao ar livre a fecharem temporariamente. Apenas as lojas cobertas permanecem abertas."
       effects:
         outdoor_closed: true
 

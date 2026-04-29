@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-// In dev mode (Vite), use direct backend URL. In production, use relative.
-const isDev = import.meta.env.DEV;
-const API_BASE = isDev ? 'http://localhost:8420' : '';
-const WS_URL = isDev ? 'ws://localhost:8420/ws' : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
+// Always use the current host so Vite's proxy forwards correctly in dev.
+// In dev: localhost:5173/api → proxy → localhost:8420/api
+// In prod: same host serves both frontend and backend.
+const WS_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
 
 const SIGNIFICANT_TYPES = new Set(['scheduled_event', 'injected_event', 'interaction']);
 
@@ -14,58 +14,58 @@ export function useSimulation() {
   const [lastSignificantEvent, setLastSignificantEvent] = useState(null);
   const wsRef = useRef(null);
   const eventsRef = useRef([]);
+  const unmountedRef = useRef(false);
 
   useEffect(() => {
-    // Fetch initial state
-    fetch(`${API_BASE}/api/state`)
+    unmountedRef.current = false;
+
+    fetch('/api/state')
       .then(r => r.json())
-      .then(setState)
+      .then(d => { if (!unmountedRef.current) setState(d?.error ? null : d); })
       .catch(() => {});
 
-    // Connect WebSocket
-    const ws = new WebSocket(WS_URL);
-    wsRef.current = ws;
+    function connect() {
+      if (unmountedRef.current) return;
+      const ws = new WebSocket(WS_URL);
+      wsRef.current = ws;
 
-    ws.onopen = () => setConnected(true);
-    ws.onclose = () => {
-      setConnected(false);
-      // Reconnect after 2s
-      setTimeout(() => {
-        if (wsRef.current === ws) {
-          wsRef.current = new WebSocket(WS_URL);
+      ws.onopen = () => { if (!unmountedRef.current) setConnected(true); };
+
+      ws.onclose = () => {
+        if (unmountedRef.current) return;
+        setConnected(false);
+        setTimeout(connect, 2000);
+      };
+
+      ws.onmessage = (msg) => {
+        if (unmountedRef.current) return;
+        try {
+          const event = JSON.parse(msg.data);
+          if (event.type === 'tick_end') {
+            setState(event.data);
+          }
+          eventsRef.current = [...eventsRef.current.slice(-200), event];
+          setEvents([...eventsRef.current]);
+          if (SIGNIFICANT_TYPES.has(event.type)) {
+            setLastSignificantEvent({ ...event, _ts: Date.now() });
+          }
+        } catch (e) {
+          console.warn('Failed to parse event:', e);
         }
-      }, 2000);
-    };
+      };
+    }
 
-    ws.onmessage = (msg) => {
-      try {
-        const event = JSON.parse(msg.data);
-
-        // Update state on tick_end
-        if (event.type === 'tick_end') {
-          setState(event.data);
-        }
-
-        // Append to events log
-        eventsRef.current = [...eventsRef.current.slice(-200), event];
-        setEvents([...eventsRef.current]);
-
-        if (SIGNIFICANT_TYPES.has(event.type)) {
-          setLastSignificantEvent({ ...event, _ts: Date.now() });
-        }
-      } catch (e) {
-        console.warn('Failed to parse event:', e);
-      }
-    };
+    connect();
 
     return () => {
-      ws.close();
+      unmountedRef.current = true;
+      if (wsRef.current) wsRef.current.close();
     };
   }, []);
 
   const injectEvent = useCallback(async (description, location = '') => {
     try {
-      await fetch(`${API_BASE}/api/inject`, {
+      await fetch('/api/inject', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ description, location }),
@@ -77,7 +77,7 @@ export function useSimulation() {
 
   const control = useCallback(async (action) => {
     try {
-      await fetch(`${API_BASE}/api/control/${action}`, { method: 'POST' });
+      await fetch(`/api/control/${action}`, { method: 'POST' });
     } catch (e) {
       console.error('Failed to send control:', e);
     }

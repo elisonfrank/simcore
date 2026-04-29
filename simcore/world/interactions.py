@@ -55,6 +55,11 @@ class InteractionResolver:
         initiator.memory.update_relationship(target.name, base_delta, tick, action.content)
         target.memory.update_relationship(initiator.name, base_delta, tick, action.content)
 
+        initiator.state.mood = max(-1.0, min(1.0, initiator.state.mood + base_delta))
+        target.state.mood = max(-1.0, min(1.0, target.state.mood + base_delta))
+        initiator.state.energy = max(0.0, initiator.state.energy - 0.02)
+        target.state.energy = max(0.0, target.state.energy - 0.01)
+
         return InteractionResult(
             initiator=initiator.name,
             target=target.name,
@@ -75,6 +80,11 @@ class InteractionResolver:
         initiator.memory.update_relationship(target.name, 0.1, tick, f"traded: {action.content}")
         target.memory.update_relationship(initiator.name, 0.05, tick, f"trade proposed: {action.content}")
 
+        initiator.state.mood = max(-1.0, min(1.0, initiator.state.mood + 0.1))
+        target.state.mood = max(-1.0, min(1.0, target.state.mood + 0.05))
+        initiator.state.energy = max(0.0, initiator.state.energy - 0.03)
+        target.state.energy = max(0.0, target.state.energy - 0.02)
+
         return InteractionResult(
             initiator=initiator.name,
             target=target.name,
@@ -94,6 +104,11 @@ class InteractionResolver:
 
         initiator.memory.update_relationship(target.name, 0.03, tick)
         target.memory.update_relationship(initiator.name, 0.03, tick)
+
+        initiator.state.mood = max(-1.0, min(1.0, initiator.state.mood + 0.03))
+        target.state.mood = max(-1.0, min(1.0, target.state.mood + 0.03))
+        initiator.state.energy = max(0.0, initiator.state.energy - 0.015)
+        target.state.energy = max(0.0, target.state.energy - 0.015)
 
         return InteractionResult(
             initiator=initiator.name,

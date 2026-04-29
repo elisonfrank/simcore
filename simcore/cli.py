@@ -112,8 +112,9 @@ def run(config_path: str, dashboard: bool, headless: bool, output: str | None,
             # Run server + simulation concurrently
             import uvicorn
             from simcore.server.api import create_app
+            from simcore.server.scenarios import ScenarioStore
 
-            app = create_app(engine)
+            app = create_app(engine, scenario_store=ScenarioStore())
             config_uvicorn = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="warning")
             server = uvicorn.Server(config_uvicorn)
 
@@ -174,6 +175,32 @@ def serve(db_path: str, port: int):
     console.print(f"  URL: [link]http://localhost:{port}[/link]")
     # TODO: implement replay server
     console.print("[yellow]Replay server coming soon[/yellow]")
+
+
+@main.command()
+@click.option("--port", default=8420, help="Dashboard server port")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose logging")
+def manage(port: int, verbose: bool):
+    """Start the scenario manager — browse and launch scenarios from the dashboard."""
+    setup_logging(verbose)
+
+    import uvicorn
+    from simcore.server.api import create_app
+    from simcore.server.scenarios import ScenarioStore
+
+    app = create_app(scenario_store=ScenarioStore())
+
+    async def _run():
+        config_uvicorn = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="warning")
+        server = uvicorn.Server(config_uvicorn)
+        console.print(f"[bold green]SimCore v{__version__}[/bold green]")
+        console.print(f"  Mode: [bold cyan]Scenario Manager[/bold cyan]")
+        console.print(f"  Dashboard: [link]http://localhost:{port}[/link]")
+        console.print()
+        webbrowser.open(f"http://localhost:{port}")
+        await server.serve()
+
+    asyncio.run(_run())
 
 
 if __name__ == "__main__":

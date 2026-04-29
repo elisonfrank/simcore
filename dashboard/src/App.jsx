@@ -7,6 +7,8 @@ import LogStream from './components/LogStream';
 import EventInjector from './components/EventInjector';
 import PostMortem from './components/PostMortem';
 import BreakingBanner from './components/BreakingBanner';
+import ScenarioLibrary from './components/ScenarioLibrary';
+import ScenarioWizard from './components/ScenarioWizard';
 import { resolveScenarioLocations, findUrbanCenterByName } from './lib/osm';
 import { useT, translateLocation } from './lib/i18n.jsx';
 
@@ -29,6 +31,8 @@ function App() {
   const [firstState, setFirstState] = useState(null);
   const [showPostMortem, setShowPostMortem] = useState(false);
   const [dismissedPostMortem, setDismissedPostMortem] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
   const inflightResolveRef = useRef(null);
 
   const selectedAgent = state?.agents?.[selectedAgentId] || null;
@@ -155,6 +159,11 @@ function App() {
     }
   }, []);
 
+  // Show library when there's truly no simulation (never had state, or sim ended and post-mortem was dismissed)
+  useEffect(() => {
+    if (!state && !showPostMortem) setShowLibrary(true);
+  }, [state]);
+
   // Capture initial state snapshot for post-mortem comparison
   useEffect(() => {
     if (state && !firstState) setFirstState(state);
@@ -179,7 +188,7 @@ function App() {
     if (!mapCenter || !scenarioLocKeys || !locationLabel) return;
     const locs = state?.environment?.locations;
     if (!locs) return;
-    const cacheKey = `simcore:osm:v8:${locationLabel}:${scenarioLocKeys}`;
+    const cacheKey = `simcore:osm:v10:${locationLabel}:${scenarioLocKeys}`;
 
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
@@ -338,6 +347,16 @@ function App() {
             </button>
           )}
           <button
+            onClick={() => setShowLibrary(true)}
+            style={styles.scenariosBtn}
+            title={t('scenario.browse')}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="2" y="3" width="20" height="5" rx="1"/><rect x="2" y="10" width="20" height="5" rx="1"/><rect x="2" y="17" width="20" height="5" rx="1"/>
+            </svg>
+            {t('scenario.browse')}
+          </button>
+          <button
             onClick={() => setLang(lang === 'en' ? 'pt' : 'en')}
             style={styles.langToggle}
             title="Language / Idioma"
@@ -433,24 +452,29 @@ function App() {
           state={state}
           events={events}
           firstState={firstState}
-          onClose={() => { setShowPostMortem(false); setDismissedPostMortem(true); }}
+          onClose={() => {
+            setShowPostMortem(false);
+            setDismissedPostMortem(true);
+            setShowLibrary(true);
+          }}
         />
       )}
 
-      {/* Loading overlay */}
-      {!state && (
-        <div style={styles.loadingOverlay}>
-          <div style={styles.loadingCard}>
-            <div style={styles.spinner} />
-            <div style={{ color: 'var(--text-1)', fontSize: 16, fontWeight: 600, marginTop: 16 }}>
-              {t('loading.waiting')}
-            </div>
-            <code style={{ color: 'var(--text-3)', fontSize: 12, marginTop: 8 }}>
-              simcore run config.yaml --dashboard --demo
-            </code>
-          </div>
-        </div>
-      )}
+      {/* Scenario wizard (on top of library) */}
+      <ScenarioWizard
+        visible={showWizard}
+        onClose={() => setShowWizard(false)}
+        onSaved={() => { setShowWizard(false); }}
+      />
+
+      {/* Scenario library overlay */}
+      <ScenarioLibrary
+        visible={showLibrary && !showWizard}
+        dismissible={!!state}
+        onClose={() => setShowLibrary(false)}
+        onNew={() => setShowWizard(true)}
+        onRun={() => setShowLibrary(false)}
+      />
     </div>
   );
 }
@@ -600,6 +624,22 @@ const styles = {
     justifyContent: 'center',
     transition: 'all var(--transition)',
     padding: 0,
+  },
+  scenariosBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '4px 10px',
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid var(--border-subtle)',
+    borderRadius: 6,
+    color: 'var(--text-2)',
+    fontSize: 10,
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all var(--transition)',
+    fontFamily: 'var(--font-sans)',
+    letterSpacing: 0.3,
   },
   langToggle: {
     background: 'rgba(255,255,255,0.04)',

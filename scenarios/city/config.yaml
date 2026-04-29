@@ -185,18 +185,24 @@ events:
     - tick: 18
       type: "social_unrest"
       description: "University students stage a protest at City Hall demanding rent control. Traffic is disrupted and tensions rise."
+      translations:
+        pt: "Estudantes universitários realizam um protesto na Câmara Municipal exigindo controle de aluguel. O trânsito é interrompido e as tensões aumentam."
       effects:
         protest_active: true
 
     - tick: 36
       type: "infrastructure"
       description: "A water main breaks near the Hospital, causing disruptions. Emergency services are redirected."
+      translations:
+        pt: "Um cano d'água se rompe perto do Hospital, causando transtornos. Os serviços de emergência são redirecionados."
       effects:
         hospital_disrupted: true
 
     - tick: 54
       type: "political"
       description: "A leaked document reveals the transit proposal includes demolishing part of the Cafe District. Public outrage follows."
+      translations:
+        pt: "Um documento vazado revela que a proposta de transporte inclui a demolição de parte do Distrito de Cafés. A indignação pública é imediata."
       effects:
         transit_controversy: true
 

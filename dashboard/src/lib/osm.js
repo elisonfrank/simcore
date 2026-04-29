@@ -381,47 +381,93 @@ export async function resolveScenarioLocations(scenarioLocations, center) {
   const used = new Set();
   const placed = [];
 
-  // Sort locations so types with fewer candidates get picked first (scarcity priority)
-  const sortedLocs = Object.entries(scenarioLocations).sort((a, b) => {
-    const countA = (byType[a[1].type] || []).length;
-    const countB = (byType[b[1].type] || []).length;
+  // Helper: pick the best POI for a given synthetic location + type list
+  function pickBest(syntheticLoc, typesToTry) {
+    for (const type of typesToTry) {
+      const candidates = (byType[type] || []).filter((c) => !used.has(c.id));
+      if (candidates.length === 0) continue;
+      let best = null, bestScore = -Infinity;
+      for (const cand of candidates) {
+        const nameBonus = nameMatchScore(syntheticLoc, cand.tags || {});
+        let spread = Infinity;
+        for (const p of placed) {
+          const d = Math.hypot(cand.coords[0] - p[0], cand.coords[1] - p[1]);
+          if (d < spread) spread = d;
+        }
+        const urbanPenalty = Math.hypot(cand.coords[0] - urbanCenter[0], cand.coords[1] - urbanCenter[1]) * 500;
+        const score = placed.length === 0
+          ? nameBonus - urbanPenalty * 2
+          : nameBonus + spread * 1000 - urbanPenalty;
+        if (score > bestScore) { bestScore = score; best = cand; }
+      }
+      if (best) return best;
+    }
+    return null;
+  }
+
+  // --- Phase 1: resolve parent groups (locations sharing a building) ---
+  // All children in a group share one real POI; they fan out with small offsets.
+  const parentGroups = {}; // { parentName: [{name, loc}] }
+  const standalone = [];   // [{name, loc}]
+
+  for (const [name, loc] of Object.entries(scenarioLocations)) {
+    const parent = loc.properties?.parent;
+    console.log(`[SimCore] loc "${name}" → parent=${parent || 'none'}`);
+    if (parent) {
+      if (!parentGroups[parent]) parentGroups[parent] = [];
+      parentGroups[parent].push({ name, loc });
+    } else {
+      standalone.push({ name, loc });
+    }
+  }
+
+  for (const [parentName, children] of Object.entries(parentGroups)) {
+    // Try progressively broader type lists to find any real POI near the urban center
+    const syntheticLoc = { name: parentName, type: 'education' };
+    let parentPOI =
+      pickBest(syntheticLoc, ['education', 'social', 'administrative']) ||
+      pickBest(syntheticLoc, Object.keys(TYPE_MATCHERS));
+
+    let anchorCoords;
+    let osmName = parentName;
+    let osmTags = null;
+
+    if (parentPOI) {
+      used.add(parentPOI.id);
+      placed.push(parentPOI.coords);
+      anchorCoords = parentPOI.coords;
+      osmName = parentPOI.tags?.name || parentName;
+      osmTags = parentPOI.tags;
+      console.log(`[SimCore] parent "${parentName}" → POI "${osmName}"`, anchorCoords);
+    } else {
+      // No POI found — fall back to urban center so children stay together
+      anchorCoords = urbanCenter;
+      placed.push(anchorCoords);
+      console.log(`[SimCore] parent "${parentName}" → no POI, using urban center`, anchorCoords);
+    }
+
+    // Spread children in a tight ring (~20m radius) around the anchor
+    const N = children.length;
+    children.forEach(({ name }, i) => {
+      const coords = N === 1 ? anchorCoords : [
+        anchorCoords[0] + 0.00018 * Math.cos((i / N) * 2 * Math.PI),
+        anchorCoords[1] + 0.00018 * Math.sin((i / N) * 2 * Math.PI),
+      ];
+      result[name] = { coords, osmName, osmTags, parentGroup: parentName };
+    });
+  }
+
+  // --- Phase 2: resolve standalone locations (existing logic) ---
+  // Sort by scarcity so types with fewer candidates get priority
+  standalone.sort((a, b) => {
+    const countA = (byType[a.loc.type] || []).length;
+    const countB = (byType[b.loc.type] || []).length;
     return countA - countB;
   });
 
-  for (const [name, loc] of sortedLocs) {
-    // Try primary type first, then cross-type fallbacks
+  for (const { name, loc } of standalone) {
     const typesToTry = [loc.type, ...(TYPE_FALLBACKS[loc.type] || [])];
-    let candidates = [];
-    for (const type of typesToTry) {
-      candidates = (byType[type] || []).filter((c) => !used.has(c.id));
-      if (candidates.length > 0) break;
-    }
-    if (candidates.length === 0) continue;
-
-    // Score candidates: name-keyword match (highest weight) + spread + center proximity
-    let best = null;
-    let bestScore = -Infinity;
-    for (const cand of candidates) {
-      const nameBonus = nameMatchScore(loc, cand.tags || {});
-      let spread = Infinity;
-      for (const p of placed) {
-        const d = Math.hypot(cand.coords[0] - p[0], cand.coords[1] - p[1]);
-        if (d < spread) spread = d;
-      }
-      let score;
-      if (placed.length === 0) {
-        // First pick: prefer name match, then proximity to urban center
-        score = nameBonus - Math.hypot(cand.coords[0] - urbanCenter[0], cand.coords[1] - urbanCenter[1]) * 1000;
-      } else {
-        const urbanPenalty = Math.hypot(cand.coords[0] - urbanCenter[0], cand.coords[1] - urbanCenter[1]) * 500;
-        score = nameBonus + spread * 1000 - urbanPenalty;
-      }
-      if (score > bestScore) {
-        bestScore = score;
-        best = cand;
-      }
-    }
-
+    const best = pickBest(loc, typesToTry);
     if (best) {
       result[name] = { coords: best.coords, osmName: best.tags?.name || null, osmTags: best.tags };
       used.add(best.id);
