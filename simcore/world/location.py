@@ -14,6 +14,7 @@ class Location:
     position: tuple[int, int] = (0, 0)
     capacity: int = 50
     city: str = ""
+    virtual: bool = False
     properties: dict[str, object] = field(default_factory=dict)
     _occupants: set[str] = field(default_factory=set, repr=False)
 
@@ -44,6 +45,7 @@ class Location:
             "position": list(self.position),
             "capacity": self.capacity,
             "city": self.city,
+            "virtual": self.virtual,
             "occupants": self.get_occupants(),
             "occupant_count": self.occupant_count,
             "properties": self.properties,

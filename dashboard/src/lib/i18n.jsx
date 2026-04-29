@@ -62,6 +62,7 @@ const DICTIONARIES = {
     'locType.social': 'social',
     'locType.agricultural': 'agricultural',
     'locType.recreation': 'recreation',
+    'locType.virtual': 'virtual',
 
     // Clock prefix (parsed from "Day N, HH:MM")
     'clock.day': 'Day',
@@ -251,6 +252,7 @@ const DICTIONARIES = {
     'locType.social': 'social',
     'locType.agricultural': 'agrícola',
     'locType.recreation': 'recreação',
+    'locType.virtual': 'virtual',
 
     // Clock prefix
     'clock.day': 'Dia',

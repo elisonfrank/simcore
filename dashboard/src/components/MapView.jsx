@@ -12,6 +12,9 @@ const AGENT_COLORS = [
   '#e879f9', '#4ade80',
 ];
 
+// A location is virtual if either the boolean flag or string type says so
+const isVirtual = (loc) => loc?.virtual === true || loc?.type === 'virtual';
+
 // Below this zoom level, agent markers + lines are hidden.
 const AGENT_VISIBILITY_ZOOM = 4;
 // Below this zoom level, nearby location pins collapse into a single cluster pin.
@@ -44,6 +47,7 @@ export default function MapView({ state, selectedAgent, onSelectAgent, mapCenter
   const agentLinesRef = useRef({});
   const agentLayerRef = useRef(null);
   const agentLocationRef = useRef({});
+  const lastPhysicalLocRef = useRef({}); // agent id → last non-virtual location name
   const connectionLinesRef = useRef([]);
   const animFrameRef = useRef(null);
   const locationGeoRef = useRef({});
@@ -113,9 +117,19 @@ export default function MapView({ state, selectedAgent, onSelectAgent, mapCenter
     const center = mapCenter || [-23.5505, -46.6333];
     const newGeo = {};
 
-    // Build raw geo coords first
+    // Remove any existing markers for locations that became virtual
+    Object.entries(env.locations || {}).forEach(([name, loc]) => {
+      if (isVirtual(loc) && locationMarkersRef.current[name]) {
+        map.removeLayer(locationMarkersRef.current[name]);
+        delete locationMarkersRef.current[name];
+        delete locationIconStateRef.current[name];
+      }
+    });
+
+    // Build raw geo coords first — skip virtual locations (no pin on map)
     const rawGeo = {};
     Object.entries(env.locations || {}).forEach(([name, loc]) => {
+      if (isVirtual(loc)) return;
       const real = realLocations?.[name];
       rawGeo[name] = real?.coords || gridToGeo(loc.position, gridSize, center);
     });
@@ -190,6 +204,7 @@ export default function MapView({ state, selectedAgent, onSelectAgent, mapCenter
       });
 
       Object.entries(env.locations || {}).forEach(([name, loc]) => {
+        if (isVirtual(loc)) return;
         const real = realLocations?.[name];
         const geo = newGeo[name];
         const osmName = real?.osmName;
@@ -267,11 +282,26 @@ export default function MapView({ state, selectedAgent, onSelectAgent, mapCenter
     const agents = state.agents;
     const agentIds = Object.keys(agents);
     const locGeo = locationGeoRef.current;
+    const envLocs = state.environment?.locations || {};
 
-    // Group agents by location for orbital positioning
+    // Track last physical location per agent; virtual locations don't update it
+    agentIds.forEach(id => {
+      const locName = agents[id].state?.location || agents[id].location;
+      if (!isVirtual(envLocs[locName])) lastPhysicalLocRef.current[id] = locName;
+    });
+
+    // For positioning: use last physical location if current is virtual
+    const firstPhysical = Object.keys(envLocs).find(n => !isVirtual(envLocs[n]));
+    const effectiveLoc = (id) => {
+      const locName = agents[id].state?.location || agents[id].location;
+      if (!isVirtual(envLocs[locName])) return locName;
+      return lastPhysicalLocRef.current[id] || firstPhysical || locName;
+    };
+
+    // Group agents by effective (physical) location for row layout
     const byLocation = {};
     agentIds.forEach(id => {
-      const loc = agents[id].state?.location || agents[id].location;
+      const loc = effectiveLoc(id);
       if (!byLocation[loc]) byLocation[loc] = [];
       byLocation[loc].push(id);
     });
@@ -297,10 +327,9 @@ export default function MapView({ state, selectedAgent, onSelectAgent, mapCenter
       group.forEach(n => { locToCluster[n] = key; visitedPins.add(n); });
     });
 
-    // Assign each agent to its cluster and record order within cluster
+    // Assign each agent to its cluster using effective (physical) location
     agentIds.forEach(id => {
-      const locName = agents[id].state?.location || agents[id].location;
-      const clKey = locToCluster[locName];
+      const clKey = locToCluster[effectiveLoc(id)];
       if (clKey) clusterMeta[clKey].agentIds.push(id);
     });
 
@@ -320,8 +349,7 @@ export default function MapView({ state, selectedAgent, onSelectAgent, mapCenter
 
     agentIds.forEach((id, globalIdx) => {
       const agent = agents[id];
-      const locName = agent.state?.location || agent.location;
-      const locCenter = locGeo[locName];
+      const locCenter = locGeo[effectiveLoc(id)];
       if (!locCenter) return;
 
       const targetGeo = agentGeoMap[id];
@@ -354,9 +382,10 @@ export default function MapView({ state, selectedAgent, onSelectAgent, mapCenter
         agentLinesRef.current[id] = line;
       }
 
+      const currentLocName = agents[id].state?.location || agents[id].location;
       const prevLocation = agentLocationRef.current[id];
-      const locationChanged = prevLocation !== undefined && prevLocation !== locName;
-      agentLocationRef.current[id] = locName;
+      const locationChanged = prevLocation !== undefined && prevLocation !== currentLocName;
+      agentLocationRef.current[id] = currentLocName;
 
       if (agentMarkersRef.current[id]) {
         if (locationChanged) {

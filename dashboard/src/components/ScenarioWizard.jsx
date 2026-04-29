@@ -65,6 +65,7 @@ const LOCATION_TYPES = [
   { value: 'agricultural', label: 'Agrícola' },
   { value: 'leisure', label: 'Lazer' },
   { value: 'generic', label: 'Genérico' },
+  { value: 'virtual', label: 'Virtual (sem pin no mapa)' },
 ];
 const LLM_MODELS = ['ollama/qwen2.5:7b', 'ollama/llama3.2:3b', 'gpt-4o-mini', 'anthropic/claude-haiku-4-5-20251001', 'anthropic/claude-sonnet-4-6', 'demo'];
 const LANGUAGES = [
@@ -742,6 +743,8 @@ const styles = {
     border: '1px solid rgba(255,255,255,0.12)',
     borderRadius: 8,
     overflow: 'hidden',
+    overflowY: 'auto',
+    maxHeight: 240,
     boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
   },
   selectOption: {

@@ -31,6 +31,7 @@ class LocationConfig(BaseModel):
     capacity: int = 50
     properties: dict[str, object] = Field(default_factory=dict)
     city: str = ""
+    virtual: bool = False
 
 
 class EnvironmentConfig(BaseModel):

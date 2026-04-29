@@ -71,6 +71,7 @@ class SimulationEngine:
                 position=loc_cfg.position,
                 capacity=loc_cfg.capacity,
                 city=loc_cfg.city,
+                virtual=loc_cfg.virtual,
                 properties=dict(loc_cfg.properties),
             ))
         return env
@@ -91,13 +92,21 @@ class SimulationEngine:
                 goals=tuple(agent_cfg.goals),
                 backstory=agent_cfg.backstory,
             )
+            # Redirect to first physical location if starting_location is virtual
+            start_loc = agent_cfg.starting_location
+            loc_obj = self.environment.locations.get(start_loc)
+            if loc_obj and (loc_obj.virtual or loc_obj.type == 'virtual'):
+                physical = next((l.name for l in self.environment.locations.values() if not l.virtual and l.type != 'virtual'), start_loc)
+                logger.warning(f"Agent {agent_cfg.name} starts at virtual '{start_loc}' → redirected to '{physical}'")
+                start_loc = physical
+
             state = AgentState(
-                location=agent_cfg.starting_location,
+                location=start_loc,
                 resources=dict(agent_cfg.resources),
             )
             agent = Agent(persona=persona, state=state)
             self.agents[agent.id] = agent
-            self.environment.place_agent(agent.id, agent_cfg.starting_location)
+            self.environment.place_agent(agent.id, start_loc)
 
     async def run(self) -> None:
         """Run the simulation until completion or stop signal."""
