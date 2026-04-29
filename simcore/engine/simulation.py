@@ -70,6 +70,7 @@ class SimulationEngine:
                 type=loc_cfg.type,
                 position=loc_cfg.position,
                 capacity=loc_cfg.capacity,
+                city=loc_cfg.city,
                 properties=dict(loc_cfg.properties),
             ))
         return env

@@ -9,7 +9,7 @@ import PostMortem from './components/PostMortem';
 import BreakingBanner from './components/BreakingBanner';
 import ScenarioLibrary from './components/ScenarioLibrary';
 import ScenarioWizard from './components/ScenarioWizard';
-import { resolveScenarioLocations, findUrbanCenterByName } from './lib/osm';
+import { resolveScenarioLocations, findUrbanCenterByName, geocodeLocation } from './lib/osm';
 import { useT, translateLocation } from './lib/i18n.jsx';
 
 const AGENT_COLORS = [
@@ -33,6 +33,8 @@ function App() {
   const [dismissedPostMortem, setDismissedPostMortem] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
+  const [editScenario, setEditScenario] = useState(null);
+  const [libraryRefreshKey, setLibraryRefreshKey] = useState(0);
   const inflightResolveRef = useRef(null);
 
   const selectedAgent = state?.agents?.[selectedAgentId] || null;
@@ -188,7 +190,8 @@ function App() {
     if (!mapCenter || !scenarioLocKeys || !locationLabel) return;
     const locs = state?.environment?.locations;
     if (!locs) return;
-    const cacheKey = `simcore:osm:v10:${locationLabel}:${scenarioLocKeys}`;
+    const citiesKey = Object.values(locs).map(l => l.city || '').join('|');
+    const cacheKey = `simcore:osm:v10:${locationLabel}:${scenarioLocKeys}:${citiesKey}`;
 
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
@@ -206,24 +209,41 @@ function App() {
     inflightResolveRef.current = cacheKey;
 
     setResolvingLocations(true);
-    resolveScenarioLocations(locs, mapCenter)
-      .then((result) => {
+
+    const locsArray = Object.entries(locs);
+    const withCity = locsArray.filter(([, loc]) => loc.city?.trim());
+    const withoutCity = locsArray.filter(([, loc]) => !loc.city?.trim());
+
+    const cityResolutions = withCity.map(async ([name, loc]) => {
+      const coords = await geocodeLocation(name, loc.city);
+      return coords ? [name, { coords, osmName: loc.city }] : null;
+    });
+
+    const locsForOsm = withoutCity.length > 0
+      ? Object.fromEntries(withoutCity)
+      : null;
+
+    Promise.all([
+      Promise.all(cityResolutions),
+      locsForOsm ? resolveScenarioLocations(locsForOsm, mapCenter) : Promise.resolve(null),
+    ]).then(([cityResults, osmResult]) => {
         if (inflightResolveRef.current !== cacheKey) return; // stale response
-        const resolved = result?.locations;
-        const urbanCenter = result?.urbanCenter;
+        const resolved = { ...(osmResult?.locations || {}) };
+        cityResults.forEach(r => { if (r) resolved[r[0]] = r[1]; });
+        const urbanCenter = osmResult?.urbanCenter;
         if (resolved && Object.keys(resolved).length > 0) {
           const payload = { locations: resolved, urbanCenter };
           localStorage.setItem(cacheKey, JSON.stringify(payload));
           setRealLocations(resolved);
 
-          // If urban center is >2km from current mapCenter, pan the map to it
-          if (urbanCenter) {
+          // Only re-center when there are NO city-geocoded locations.
+          // When city locations exist, MapView's fitBounds handles navigation.
+          if (urbanCenter && withCity.length === 0) {
             const distKm = Math.hypot(
               (urbanCenter[0] - mapCenter[0]) * 111,
               (urbanCenter[1] - mapCenter[1]) * 111 * Math.cos(urbanCenter[0] * Math.PI / 180)
             );
             if (distKm > 2) {
-              console.log(`[SimCore] Urban center is ${distKm.toFixed(1)}km from mapCenter — re-centering`);
               setMapCenter(urbanCenter);
               try {
                 localStorage.setItem('simcore:location', JSON.stringify({ center: urbanCenter, label: locationLabel }));
@@ -463,17 +483,20 @@ function App() {
       {/* Scenario wizard (on top of library) */}
       <ScenarioWizard
         visible={showWizard}
-        onClose={() => setShowWizard(false)}
-        onSaved={() => { setShowWizard(false); }}
+        editScenario={editScenario}
+        onClose={() => { setShowWizard(false); setEditScenario(null); }}
+        onSaved={() => { setShowWizard(false); setEditScenario(null); setLibraryRefreshKey(k => k + 1); }}
       />
 
       {/* Scenario library overlay */}
       <ScenarioLibrary
+        key={libraryRefreshKey}
         visible={showLibrary && !showWizard}
         dismissible={!!state}
         onClose={() => setShowLibrary(false)}
-        onNew={() => setShowWizard(true)}
+        onNew={() => { setEditScenario(null); setShowWizard(true); }}
         onRun={() => setShowLibrary(false)}
+        onEdit={(scenario) => { setEditScenario(scenario); setShowWizard(true); }}
       />
     </div>
   );

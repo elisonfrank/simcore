@@ -11,7 +11,7 @@ function translateDuration(duration, t) {
     .toUpperCase();
 }
 
-export default function ScenarioLibrary({ visible, dismissible, onClose, onNew, onRun }) {
+export default function ScenarioLibrary({ visible, dismissible, onClose, onNew, onRun, onEdit }) {
   const { t } = useT();
   const [scenarios, setScenarios] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +46,12 @@ export default function ScenarioLibrary({ visible, dismissible, onClose, onNew, 
   const handleDelete = (scenarioId) => {
     fetch(`/api/scenarios/${encodeURIComponent(scenarioId)}`, { method: 'DELETE' })
       .then(() => setScenarios(prev => prev.filter(s => s.id !== scenarioId)));
+  };
+
+  const handleEdit = (scenarioId) => {
+    fetch(`/api/scenarios/${encodeURIComponent(scenarioId)}`)
+      .then(r => r.json())
+      .then(scenario => onEdit?.(scenario));
   };
 
   const builtins = scenarios.filter(s => s.builtin);
@@ -112,6 +118,7 @@ export default function ScenarioLibrary({ visible, dismissible, onClose, onNew, 
                         running={runningId === s.id}
                         onRunDemo={() => handleRun(s.id, true)}
                         onRunLLM={() => handleRun(s.id, false)}
+                        onEdit={() => handleEdit(s.id)}
                         onDelete={() => handleDelete(s.id)}
                         t={t}
                       />
@@ -127,8 +134,9 @@ export default function ScenarioLibrary({ visible, dismissible, onClose, onNew, 
   );
 }
 
-function ScenarioCard({ scenario, running, onRunDemo, onRunLLM, onDelete, t }) {
+function ScenarioCard({ scenario, running, onRunDemo, onRunLLM, onEdit, onDelete, t }) {
   const { meta } = scenario;
+  const canEdit = !!onEdit;
 
   const nameKey = `scenario.${scenario.id}.name`;
   const descKey = `scenario.${scenario.id}.description`;
@@ -136,7 +144,7 @@ function ScenarioCard({ scenario, running, onRunDemo, onRunLLM, onDelete, t }) {
   const displayDesc = t(descKey) !== descKey ? t(descKey) : (meta?.description || '');
 
   return (
-    <div style={styles.card}>
+    <div style={{ ...styles.card, ...(canEdit ? { cursor: 'pointer' } : {}) }} onClick={canEdit ? onEdit : undefined}>
       <div style={styles.cardTop}>
         {meta?.duration && (
           <div style={{ marginBottom: 8 }}>
@@ -162,7 +170,7 @@ function ScenarioCard({ scenario, running, onRunDemo, onRunLLM, onDelete, t }) {
           {meta?.locations || 0} {t('scenario.locations')}
         </span>
       </div>
-      <div style={styles.cardActions}>
+      <div style={styles.cardActions} onClick={e => e.stopPropagation()}>
         <button
           style={{ ...styles.runBtn, ...styles.demoBtn }}
           onClick={onRunDemo}
@@ -380,6 +388,19 @@ const styles = {
     background: 'rgba(124, 106, 255, 0.12)',
     color: '#a78bfa',
     border: '1px solid rgba(124, 106, 255, 0.25)',
+  },
+  editBtn: {
+    width: 28,
+    height: 28,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'rgba(34, 211, 238, 0.08)',
+    border: '1px solid rgba(34, 211, 238, 0.18)',
+    borderRadius: 6,
+    color: '#22d3ee',
+    cursor: 'pointer',
+    flexShrink: 0,
   },
   deleteBtn: {
     width: 28,

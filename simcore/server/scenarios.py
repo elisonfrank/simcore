@@ -44,6 +44,23 @@ class ScenarioStore:
             json.dump(record, f, ensure_ascii=False, indent=2)
         return record
 
+    def update(self, scenario_id: str, payload: dict) -> dict | None:
+        if scenario_id.startswith("builtin:"):
+            return None
+        safe_name = scenario_id.replace(":", "_")
+        path = self.user_dir / f"{safe_name}.json"
+        if not path.exists():
+            return None
+        record = {
+            "id": scenario_id,
+            "builtin": False,
+            "meta": _extract_meta(payload, scenario_id),
+            "data": payload,
+        }
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(record, f, ensure_ascii=False, indent=2)
+        return record
+
     def delete(self, scenario_id: str) -> bool:
         if scenario_id.startswith("builtin:"):
             return False

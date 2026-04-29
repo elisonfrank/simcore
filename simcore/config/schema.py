@@ -30,6 +30,7 @@ class LocationConfig(BaseModel):
     position: tuple[int, int] = (0, 0)
     capacity: int = 50
     properties: dict[str, object] = Field(default_factory=dict)
+    city: str = ""
 
 
 class EnvironmentConfig(BaseModel):

@@ -298,6 +298,49 @@ export async function findUrbanCenterByName(seedCenter, cityName, stateName) {
   return null;
 }
 
+export async function geocodeCity(cityName) {
+  return geocodeLocation(null, cityName);
+}
+
+// Try to resolve a specific POI name within a city.
+// Strategy: 1) search "locationName, city" for precise match,
+//           2) fall back to just the city name.
+export async function geocodeLocation(locationName, cityName) {
+  const headers = { 'Accept-Language': 'pt,en', 'User-Agent': 'SimCore/1.0' };
+  const nominatim = async (q, limit = 5) => {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=${limit}&q=${encodeURIComponent(q)}`;
+    const res = await fetchWithTimeout(url, { headers }, 8000);
+    if (!res.ok) return [];
+    return res.json();
+  };
+
+  try {
+    // 1. Try POI-level search when we have both name and city
+    if (locationName && cityName) {
+      const results = await nominatim(`${locationName}, ${cityName}`);
+      // Accept amenity/tourism/historic/building hits — skip raw city/admin results
+      const poi = results.find(r =>
+        ['amenity', 'tourism', 'historic', 'building', 'office', 'leisure', 'shop', 'landuse'].includes(r.class)
+      );
+      if (poi) return [parseFloat(poi.lat), parseFloat(poi.lon)];
+
+      // If no typed POI, accept any result that isn't a country/state/region
+      const any = results.find(r => !['country', 'state', 'region', 'county'].includes(r.type));
+      if (any) return [parseFloat(any.lat), parseFloat(any.lon)];
+    }
+
+    // 2. Fall back to city center
+    if (cityName) {
+      const results = await nominatim(cityName, 1);
+      if (results.length > 0) return [parseFloat(results[0].lat), parseFloat(results[0].lon)];
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function resolveScenarioLocations(scenarioLocations, center) {
   let pois = [];
   // Start at 10km — guarantees we capture the urban area even if the initial

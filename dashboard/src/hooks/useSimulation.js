@@ -15,6 +15,7 @@ export function useSimulation() {
   const wsRef = useRef(null);
   const eventsRef = useRef([]);
   const unmountedRef = useRef(false);
+  const reconnectTimerRef = useRef(null);
 
   useEffect(() => {
     unmountedRef.current = false;
@@ -34,13 +35,22 @@ export function useSimulation() {
       ws.onclose = () => {
         if (unmountedRef.current) return;
         setConnected(false);
-        setTimeout(connect, 2000);
+        reconnectTimerRef.current = setTimeout(connect, 2000);
       };
 
       ws.onmessage = (msg) => {
         if (unmountedRef.current) return;
         try {
           const event = JSON.parse(msg.data);
+          // Deduplicate: skip if same event already seen in the last 20 entries
+          const tail = eventsRef.current.slice(-20);
+          const isDup = tail.some(e =>
+            e.tick === event.tick &&
+            e.type === event.type &&
+            e.source === event.source &&
+            JSON.stringify(e.data) === JSON.stringify(event.data)
+          );
+          if (isDup) return;
           if (event.type === 'tick_end') {
             setState(event.data);
           }
@@ -59,6 +69,7 @@ export function useSimulation() {
 
     return () => {
       unmountedRef.current = true;
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       if (wsRef.current) wsRef.current.close();
     };
   }, []);

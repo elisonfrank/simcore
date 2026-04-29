@@ -136,6 +136,7 @@ const DICTIONARIES = {
 
     // Scenario wizard
     'wizard.title': 'New Scenario',
+    'wizard.titleEdit': 'Edit Scenario',
     'wizard.step.info': 'Info',
     'wizard.step.locations': 'Locations',
     'wizard.step.agents': 'Agents',
@@ -144,6 +145,7 @@ const DICTIONARIES = {
     'wizard.next': 'Next',
     'wizard.cancel': 'Cancel',
     'wizard.create': 'Create',
+    'wizard.save': 'Save',
     'wizard.addLocation': 'Add Location',
     'wizard.addAgent': 'Add Agent',
     'wizard.addEvent': 'Add Event',
@@ -333,6 +335,7 @@ const DICTIONARIES = {
 
     // Scenario wizard
     'wizard.title': 'Novo Cenário',
+    'wizard.titleEdit': 'Editar Cenário',
     'wizard.step.info': 'Info',
     'wizard.step.locations': 'Locais',
     'wizard.step.agents': 'Agentes',
@@ -341,6 +344,7 @@ const DICTIONARIES = {
     'wizard.next': 'Próximo',
     'wizard.cancel': 'Cancelar',
     'wizard.create': 'Criar',
+    'wizard.save': 'Salvar',
     'wizard.addLocation': 'Adicionar local',
     'wizard.addAgent': 'Adicionar agente',
     'wizard.addEvent': 'Adicionar evento',

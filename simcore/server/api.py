@@ -239,6 +239,13 @@ def create_app(engine: SimulationEngine | None = None,
             return {"error": f"Scenario '{scenario_id}' not found"}
         return scenario
 
+    @app.put("/api/scenarios/{scenario_id}")
+    async def update_scenario(scenario_id: str, payload: dict):
+        updated = _get_store().update(scenario_id, payload)
+        if not updated:
+            return {"error": "Scenario not found or is builtin"}
+        return updated
+
     @app.delete("/api/scenarios/{scenario_id}")
     async def delete_scenario(scenario_id: str):
         if scenario_id.startswith("builtin:"):

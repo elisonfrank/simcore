@@ -1,9 +1,79 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useT } from '../lib/i18n.jsx';
 
-const LOCATION_TYPES = ['commercial', 'residential', 'healthcare', 'education', 'government', 'social', 'agricultural', 'leisure', 'generic'];
+function CustomSelect({ value, options, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 });
+  const btnRef = useRef(null);
+
+  // options can be string[] or {value, label}[]
+  const normalize = (opt) => typeof opt === 'string' ? { value: opt, label: opt } : opt;
+  const normalized = options.map(normalize);
+  const current = normalized.find(o => o.value === value) || { value, label: value };
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (!btnRef.current?.contains(e.target) && !document.getElementById('cs-portal')?.contains(e.target))
+        setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const handleOpen = () => {
+    const rect = btnRef.current.getBoundingClientRect();
+    setDropPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+    setOpen(o => !o);
+  };
+
+  return (
+    <div style={{ position: 'relative', width: '100%' }}>
+      <button ref={btnRef} type="button" style={styles.selectBtn} onClick={handleOpen}>
+        <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{current.label}</span>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0, opacity: 0.5, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }}>
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+      {open && createPortal(
+        <div id="cs-portal" style={{ ...styles.selectDropdown, top: dropPos.top, left: dropPos.left, width: dropPos.width, position: 'fixed' }}>
+          {normalized.map(opt => (
+            <div
+              key={opt.value}
+              style={{ ...styles.selectOption, ...(opt.value === value ? styles.selectOptionActive : {}) }}
+              onMouseDown={() => { onChange(opt.value); setOpen(false); }}
+            >
+              {opt.label}
+            </div>
+          ))}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+const LOCATION_TYPES = [
+  { value: 'administrative', label: 'Administrativo' },
+  { value: 'government', label: 'Governo' },
+  { value: 'social', label: 'Social' },
+  { value: 'commercial', label: 'Comercial' },
+  { value: 'residential', label: 'Residencial' },
+  { value: 'education', label: 'Educação' },
+  { value: 'healthcare', label: 'Saúde' },
+  { value: 'agricultural', label: 'Agrícola' },
+  { value: 'leisure', label: 'Lazer' },
+  { value: 'generic', label: 'Genérico' },
+];
 const LLM_MODELS = ['ollama/qwen2.5:7b', 'ollama/llama3.2:3b', 'gpt-4o-mini', 'anthropic/claude-haiku-4-5-20251001', 'anthropic/claude-sonnet-4-6', 'demo'];
-const LANGUAGES = ['en', 'pt', 'es', 'fr', 'de'];
+const LANGUAGES = [
+  { code: 'en', label: 'English' },
+  { code: 'pt', label: 'Português' },
+  { code: 'es', label: 'Español' },
+  { code: 'fr', label: 'Français' },
+  { code: 'de', label: 'Deutsch' },
+];
 
 const DEFAULT_FORM = {
   simulation: {
@@ -25,7 +95,7 @@ const DEFAULT_FORM = {
   events: { scheduled: [], injectable: true },
 };
 
-const DEFAULT_LOCATION = () => ({ name: '', type: 'commercial', capacity: 20, position: [10, 10], properties: {} });
+const DEFAULT_LOCATION = () => ({ name: '', type: 'commercial', capacity: 20, city: '', position: [10, 10], properties: {} });
 const DEFAULT_AGENT = () => ({
   name: '',
   age: 30,
@@ -40,13 +110,21 @@ const DEFAULT_EVENT = () => ({ tick: 12, type: 'event', description: '', effects
 
 const STEPS = ['wizard.step.info', 'wizard.step.locations', 'wizard.step.agents', 'wizard.step.events'];
 
-export default function ScenarioWizard({ visible, onClose, onSaved }) {
+export default function ScenarioWizard({ visible, onClose, onSaved, editScenario }) {
   const { t } = useT();
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState(DEFAULT_FORM);
+  const [form, setForm] = useState(() => editScenario?.data || DEFAULT_FORM);
   const [saving, setSaving] = useState(false);
 
+  // Sync form when editScenario changes (library re-opens with different scenario)
+  useEffect(() => {
+    setForm(editScenario?.data || DEFAULT_FORM);
+    setStep(0);
+  }, [editScenario]);
+
   if (!visible) return null;
+
+  const isEditing = !!editScenario;
 
   const update = (path, value) => {
     setForm(prev => {
@@ -60,8 +138,10 @@ export default function ScenarioWizard({ visible, onClose, onSaved }) {
     if (!form.simulation.name.trim()) return;
     setSaving(true);
     try {
-      const res = await fetch('/api/scenarios', {
-        method: 'POST',
+      const url = isEditing ? `/api/scenarios/${encodeURIComponent(editScenario.id)}` : '/api/scenarios';
+      const method = isEditing ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       });
@@ -86,7 +166,7 @@ export default function ScenarioWizard({ visible, onClose, onSaved }) {
       <div style={styles.container}>
         {/* Header */}
         <div style={styles.header}>
-          <span style={styles.title}>{t('wizard.title')}</span>
+          <span style={styles.title}>{isEditing ? t('wizard.titleEdit') : t('wizard.title')}</span>
           <button style={styles.closeBtn} onClick={handleClose}>✕</button>
         </div>
 
@@ -132,7 +212,7 @@ export default function ScenarioWizard({ visible, onClose, onSaved }) {
                 onClick={handleSave}
                 disabled={saving || !form.simulation.name.trim()}
               >
-                {saving ? '...' : t('wizard.create')}
+                {saving ? '...' : isEditing ? t('wizard.save') : t('wizard.create')}
               </button>
             )}
           </div>
@@ -167,9 +247,18 @@ function StepInfo({ form, update, t }) {
       </Field>
       <Row>
         <Field label={t('wizard.field.language')}>
-          <select style={styles.select} value={sim.language} onChange={e => update(['simulation', 'language'], e.target.value)}>
-            {LANGUAGES.map(l => <option key={l} value={l}>{l.toUpperCase()}</option>)}
-          </select>
+          <div style={styles.chipGroup}>
+            {LANGUAGES.map(l => (
+              <button
+                key={l.code}
+                style={{ ...styles.chip, ...(sim.language === l.code ? styles.chipActive : {}) }}
+                onClick={() => update(['simulation', 'language'], l.code)}
+                type="button"
+              >
+                {l.label}
+              </button>
+            ))}
+          </div>
         </Field>
         <Field label={t('wizard.field.duration')}>
           <input style={styles.input} value={sim.duration} onChange={e => update(['simulation', 'duration'], e.target.value)} placeholder="2 days" />
@@ -180,9 +269,7 @@ function StepInfo({ form, update, t }) {
       </Row>
       <Row>
         <Field label="LLM model">
-          <select style={styles.select} value={form.llm.model} onChange={e => update(['llm', 'model'], e.target.value)}>
-            {LLM_MODELS.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
+          <CustomSelect value={form.llm.model} options={LLM_MODELS} onChange={v => update(['llm', 'model'], v)} />
         </Field>
         <Field label={t('wizard.field.temperature')}>
           <input
@@ -194,6 +281,20 @@ function StepInfo({ form, update, t }) {
           />
         </Field>
       </Row>
+      <Field label="Contexto global (JSON)">
+        <textarea
+          style={{ ...styles.input, height: 120, resize: 'vertical', fontFamily: 'monospace', fontSize: 12 }}
+          value={(() => { try { return JSON.stringify(form.environment.global_state, null, 2); } catch { return '{}'; } })()}
+          onChange={e => {
+            try {
+              const parsed = JSON.parse(e.target.value);
+              update(['environment', 'global_state'], parsed);
+            } catch {}
+          }}
+          placeholder={'{\n  "contexto": "...",\n  "aliancas": {}\n}'}
+          spellCheck={false}
+        />
+      </Field>
     </div>
   );
 }
@@ -238,12 +339,20 @@ function StepLocations({ form, setForm, t }) {
                 <input style={styles.input} value={loc.name} onChange={e => updateLoc(i, 'name', e.target.value)} placeholder="Town Square" />
               </Field>
               <Field label="Type">
-                <select style={styles.select} value={loc.type} onChange={e => updateLoc(i, 'type', e.target.value)}>
-                  {LOCATION_TYPES.map(ty => <option key={ty} value={ty}>{ty}</option>)}
-                </select>
+                <CustomSelect value={loc.type} options={LOCATION_TYPES} onChange={v => updateLoc(i, 'type', v)} />
               </Field>
-              <Field label="Capacity">
+              <Field label="Capacidade">
                 <input style={styles.input} type="number" value={loc.capacity} onChange={e => updateLoc(i, 'capacity', Number(e.target.value))} />
+              </Field>
+            </Row>
+            <Row>
+              <Field label="Cidade / Região">
+                <input style={styles.input} value={loc.city || ''} onChange={e => updateLoc(i, 'city', e.target.value)} placeholder="ex: Brasília, DF — deixe vazio para usar sua cidade" />
+              </Field>
+            </Row>
+            <Row>
+              <Field label="Descrição">
+                <input style={styles.input} value={loc.properties?.description || ''} onChange={e => updateLoc(i, 'properties', { ...loc.properties, description: e.target.value })} placeholder="Descreva este local para os agentes..." />
               </Field>
             </Row>
           </div>
@@ -312,10 +421,7 @@ function StepAgents({ form, setForm, t }) {
             <Row>
               <Field label={t('wizard.field.startLocation')}>
                 {locationNames.length > 0 ? (
-                  <select style={styles.select} value={agent.starting_location} onChange={e => updateAgent(i, 'starting_location', e.target.value)}>
-                    <option value="">—</option>
-                    {locationNames.map(l => <option key={l} value={l}>{l}</option>)}
-                  </select>
+                  <CustomSelect value={agent.starting_location || '—'} options={['—', ...locationNames]} onChange={v => updateAgent(i, 'starting_location', v === '—' ? '' : v)} />
                 ) : (
                   <input style={styles.input} value={agent.starting_location} onChange={e => updateAgent(i, 'starting_location', e.target.value)} placeholder="Add locations first" />
                 )}
@@ -355,7 +461,7 @@ function StepAgents({ form, setForm, t }) {
                   <div key={trait} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontSize: 10, color: 'var(--text-3)', width: 120, fontFamily: 'var(--font-mono)', textTransform: 'capitalize' }}>{trait}</span>
                     <input
-                      type="range" min="0" max="1" step="0.05"
+                      type="range" min="0" max="1" step="0.01"
                       value={agent.personality[trait]}
                       onChange={e => updateTrait(i, trait, parseFloat(e.target.value))}
                       style={{ flex: 1, accentColor: '#7c6aff' }}
@@ -609,6 +715,68 @@ const styles = {
     width: '100%',
     boxSizing: 'border-box',
     cursor: 'pointer',
+  },
+  selectBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    width: '100%',
+    padding: '7px 11px',
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: 7,
+    color: 'var(--text-0)',
+    fontSize: 12,
+    fontFamily: 'var(--font-sans)',
+    cursor: 'pointer',
+    textAlign: 'left',
+    boxSizing: 'border-box',
+  },
+  selectDropdown: {
+    position: 'absolute',
+    top: 'calc(100% + 4px)',
+    left: 0,
+    right: 0,
+    zIndex: 999,
+    background: '#16161e',
+    border: '1px solid rgba(255,255,255,0.12)',
+    borderRadius: 8,
+    overflow: 'hidden',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+  },
+  selectOption: {
+    padding: '8px 12px',
+    fontSize: 12,
+    fontFamily: 'var(--font-sans)',
+    color: 'var(--text-1)',
+    cursor: 'pointer',
+    transition: 'background 100ms',
+  },
+  selectOptionActive: {
+    background: 'rgba(124,106,255,0.18)',
+    color: '#c8bfff',
+  },
+  chipGroup: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  chip: {
+    padding: '5px 11px',
+    borderRadius: 6,
+    fontSize: 11,
+    fontWeight: 500,
+    fontFamily: 'var(--font-sans)',
+    cursor: 'pointer',
+    border: '1px solid rgba(255,255,255,0.1)',
+    background: 'rgba(255,255,255,0.04)',
+    color: 'var(--text-2)',
+    transition: 'all 120ms',
+  },
+  chipActive: {
+    background: 'rgba(124,106,255,0.18)',
+    border: '1px solid rgba(124,106,255,0.45)',
+    color: '#c8bfff',
   },
   listItem: {
     background: 'rgba(255,255,255,0.02)',

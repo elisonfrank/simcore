@@ -13,8 +13,9 @@ const AGENT_COLORS = [
 ];
 
 // Below this zoom level, agent markers + lines are hidden.
-// Location pins stay visible always (with count badge showing density).
-const AGENT_VISIBILITY_ZOOM = 14;
+const AGENT_VISIBILITY_ZOOM = 4;
+// Below this zoom level, nearby location pins collapse into a single cluster pin.
+const CLUSTER_ZOOM_THRESHOLD = 10;
 
 function gridToGeo(gridPos, gridSize, center) {
   const [gx, gy] = gridPos;
@@ -34,7 +35,8 @@ export default function MapView({ state, selectedAgent, onSelectAgent, mapCenter
   const [currentZoom, setCurrentZoom] = useState(14);
   const containerRef = useRef(null);
   const mapRef = useRef(null);
-  const locationMarkersRef = useRef({});
+  const locationMarkersRef = useRef({});   // individual pin markers
+  const clusterMarkersRef = useRef([]);    // cluster markers (cleared/rebuilt on zoom)
   const locationIconStateRef = useRef({});
   const agentMarkersRef = useRef({});
   const agentIconStateRef = useRef({});
@@ -111,64 +113,143 @@ export default function MapView({ state, selectedAgent, onSelectAgent, mapCenter
     const center = mapCenter || [-23.5505, -46.6333];
     const newGeo = {};
 
-    // Create/update location markers
+    // Build raw geo coords first
+    const rawGeo = {};
     Object.entries(env.locations || {}).forEach(([name, loc]) => {
       const real = realLocations?.[name];
-      const geo = real?.coords || gridToGeo(loc.position, gridSize, center);
-      const osmName = real?.osmName;
-      const typeLabel = t(`locType.${loc.type}`);
-      const displayName = translateLocation(name, t);
-      newGeo[name] = geo;
+      rawGeo[name] = real?.coords || gridToGeo(loc.position, gridSize, center);
+    });
 
-      const iconKey = `${displayName}|${loc.occupant_count || 0}|${osmName || ''}|${typeLabel}|${loc.type}`;
+    const pxPerDegLoc = (256 * Math.pow(2, currentZoom)) / 360;
+    const isClustered = currentZoom < CLUSTER_ZOOM_THRESHOLD;
 
-      if (locationMarkersRef.current[name]) {
-        locationMarkersRef.current[name].setLatLng(geo);
-        if (locationIconStateRef.current[name] !== iconKey) {
-          locationMarkersRef.current[name].setIcon(buildLocationIcon(displayName, loc, osmName, typeLabel));
-          locationIconStateRef.current[name] = iconKey;
-        }
-      } else {
-        const marker = L.marker(geo, {
-          icon: buildLocationIcon(displayName, loc, osmName, typeLabel),
-          interactive: true,
+    // Always remove old cluster markers and connection lines (rebuilt each render)
+    clusterMarkersRef.current.forEach(m => map.removeLayer(m));
+    clusterMarkersRef.current = [];
+    connectionLinesRef.current.forEach(l => map.removeLayer(l));
+    connectionLinesRef.current = [];
+
+    if (isClustered) {
+      // --- CLUSTER MODE: group all nearby pins → one cluster marker per group ---
+      // Hide individual location markers
+      Object.values(locationMarkersRef.current).forEach(m => m.setOpacity(0));
+
+      // Group rawGeo entries by proximity (60px threshold)
+      const clusterThresh = 60 / pxPerDegLoc;
+      const visited = new Set();
+      const nameList = Object.keys(rawGeo);
+      nameList.forEach(nameA => {
+        if (visited.has(nameA)) return;
+        const group = nameList.filter(nameB =>
+          Math.hypot(rawGeo[nameA][0] - rawGeo[nameB][0], rawGeo[nameA][1] - rawGeo[nameB][1]) < clusterThresh
+        );
+        group.forEach(n => visited.add(n));
+
+        const cLat = group.reduce((s, n) => s + rawGeo[n][0], 0) / group.length;
+        const cLng = group.reduce((s, n) => s + rawGeo[n][1], 0) / group.length;
+        const totalAgents = group.reduce((s, n) => s + (env.locations[n]?.occupant_count || 0), 0);
+        const label = group.map(n => translateLocation(n, t)).join(', ');
+
+        // Store centroid in newGeo for each member (agent placement uses this)
+        group.forEach(n => { newGeo[n] = [cLat, cLng]; });
+
+        const marker = L.marker([cLat, cLng], {
+          icon: buildClusterIcon(totalAgents, label),
+          interactive: false,
           zIndexOffset: 600,
-          riseOnHover: false,
         });
         marker.addTo(map);
-        locationMarkersRef.current[name] = marker;
-        locationIconStateRef.current[name] = iconKey;
+        clusterMarkersRef.current.push(marker);
+      });
+    } else {
+      // --- INDIVIDUAL MODE: jitter co-located pins, show each separately ---
+      Object.values(locationMarkersRef.current).forEach(m => m.setOpacity(1));
+
+      const JITTER_THRESH = 0.006;
+      const JITTER_R = Math.max(0.001, 35 / pxPerDegLoc);
+      const nameList = Object.keys(rawGeo);
+      const assigned = new Set();
+      nameList.forEach((nameA, i) => {
+        if (assigned.has(nameA)) return;
+        const group = [nameA];
+        nameList.forEach((nameB, j) => {
+          if (i === j || assigned.has(nameB)) return;
+          const d = Math.hypot(rawGeo[nameA][0] - rawGeo[nameB][0], rawGeo[nameA][1] - rawGeo[nameB][1]);
+          if (d < JITTER_THRESH) group.push(nameB);
+        });
+        if (group.length > 1) {
+          group.forEach((n, k) => {
+            const angle = (2 * Math.PI * k) / group.length - Math.PI / 2;
+            newGeo[n] = [rawGeo[n][0] + JITTER_R * Math.cos(angle), rawGeo[n][1] + JITTER_R * Math.sin(angle)];
+            assigned.add(n);
+          });
+        } else {
+          newGeo[nameA] = rawGeo[nameA];
+          assigned.add(nameA);
+        }
+      });
+
+      Object.entries(env.locations || {}).forEach(([name, loc]) => {
+        const real = realLocations?.[name];
+        const geo = newGeo[name];
+        const osmName = real?.osmName;
+        const typeLabel = t(`locType.${loc.type}`);
+        const displayName = translateLocation(name, t);
+        const iconKey = `${displayName}|${loc.occupant_count || 0}|${osmName || ''}|${typeLabel}|${loc.type}`;
+
+        if (locationMarkersRef.current[name]) {
+          locationMarkersRef.current[name].setLatLng(geo);
+          if (locationIconStateRef.current[name] !== iconKey) {
+            locationMarkersRef.current[name].setIcon(buildLocationIcon(displayName, loc, osmName, typeLabel));
+            locationIconStateRef.current[name] = iconKey;
+          }
+        } else {
+          const marker = L.marker(geo, {
+            icon: buildLocationIcon(displayName, loc, osmName, typeLabel),
+            interactive: true,
+            zIndexOffset: 600,
+            riseOnHover: false,
+          });
+          marker.addTo(map);
+          locationMarkersRef.current[name] = marker;
+          locationIconStateRef.current[name] = iconKey;
+        }
+      });
+
+      // Draw subtle connection lines between nearby locations
+      connectionLinesRef.current.forEach(l => map.removeLayer(l));
+      connectionLinesRef.current = [];
+      const locs = Object.entries(newGeo);
+      for (let i = 0; i < locs.length; i++) {
+        for (let j = i + 1; j < locs.length; j++) {
+          const d = Math.hypot(locs[i][1][0] - locs[j][1][0], locs[i][1][1] - locs[j][1][1]);
+          if (d < GRID_SCALE * 12) {
+            const line = L.polyline([locs[i][1], locs[j][1]], {
+              color: 'rgba(124, 106, 255, 0.08)',
+              weight: 1,
+              dashArray: '6 8',
+            });
+            line.addTo(map);
+            connectionLinesRef.current.push(line);
+          }
+        }
       }
-    });
+    }
 
     locationGeoRef.current = newGeo;
 
-    // Draw subtle connection lines between nearby locations
-    connectionLinesRef.current.forEach(l => map.removeLayer(l));
-    connectionLinesRef.current = [];
-    const locs = Object.entries(newGeo);
-    for (let i = 0; i < locs.length; i++) {
-      for (let j = i + 1; j < locs.length; j++) {
-        const d = Math.hypot(locs[i][1][0] - locs[j][1][0], locs[i][1][1] - locs[j][1][1]);
-        if (d < GRID_SCALE * 12) {
-          const line = L.polyline([locs[i][1], locs[j][1]], {
-            color: 'rgba(124, 106, 255, 0.08)',
-            weight: 1,
-            dashArray: '6 8',
-          });
-          line.addTo(map);
-          connectionLinesRef.current.push(line);
-        }
-      }
-    }
-
     // Fit bounds on first load, after location change, or when real POIs arrive
     if (Object.keys(newGeo).length > 1 && !mapRef.current._fitted) {
-      const bounds = L.latLngBounds(Object.values(newGeo));
-      map.fitBounds(bounds.pad(0.3), { animate: true, maxZoom: 16, duration: 0.8 });
+      const coords = Object.values(newGeo);
+      const bounds = L.latLngBounds(coords);
+      // If spread > 2 degrees (cross-city scenario), allow zooming way out
+      const spanLat = bounds.getNorth() - bounds.getSouth();
+      const spanLng = bounds.getEast() - bounds.getWest();
+      const maxZoom = (spanLat > 2 || spanLng > 2) ? 8 : 16;
+      map.fitBounds(bounds.pad(0.15), { animate: true, maxZoom, duration: 0.8 });
       mapRef.current._fitted = true;
     }
-  }, [state?.environment, mapCenter, realLocations, lang]);
+  }, [state?.environment, mapCenter, realLocations, lang, currentZoom]);
 
   // When realLocations arrives, reset fit flag so map re-frames on real POIs
   useEffect(() => {
@@ -195,7 +276,47 @@ export default function MapView({ state, selectedAgent, onSelectAgent, mapCenter
       byLocation[loc].push(id);
     });
 
-    const placedAgentPositions = []; // accumulate as agents are placed
+    // Group all agents by their pin cluster so agents from co-located pins share a row.
+    const pxPerDeg = (256 * Math.pow(2, currentZoom)) / 360;
+    const clusterThreshDeg = 60 / pxPerDeg;
+
+    // Build cluster map: locName -> clusterKey (the first pin name in the cluster)
+    const locToCluster = {};
+    const clusterMeta = {}; // clusterKey -> { center, radius, agentIds[] }
+    const visitedPins = new Set();
+    Object.keys(locGeo).forEach(nameA => {
+      if (visitedPins.has(nameA)) return;
+      const group = Object.keys(locGeo).filter(nameB =>
+        Math.hypot(locGeo[nameA][0] - locGeo[nameB][0], locGeo[nameA][1] - locGeo[nameB][1]) < clusterThreshDeg
+      );
+      const cLat = group.reduce((s, n) => s + locGeo[n][0], 0) / group.length;
+      const cLng = group.reduce((s, n) => s + locGeo[n][1], 0) / group.length;
+      const cRad = Math.max(0, ...group.map(n => Math.hypot(locGeo[n][0] - cLat, locGeo[n][1] - cLng)));
+      const key = nameA;
+      clusterMeta[key] = { center: [cLat, cLng], radius: cRad, agentIds: [] };
+      group.forEach(n => { locToCluster[n] = key; visitedPins.add(n); });
+    });
+
+    // Assign each agent to its cluster and record order within cluster
+    agentIds.forEach(id => {
+      const locName = agents[id].state?.location || agents[id].location;
+      const clKey = locToCluster[locName];
+      if (clKey) clusterMeta[clKey].agentIds.push(id);
+    });
+
+    // Pre-compute position for each agent: row below cluster, centered, 26px spacing
+    const agentGeoMap = {};
+    const spacingDeg = 26 / pxPerDeg;
+    const rowOffsetDeg = 8 / pxPerDeg; // below pin cluster bottom
+
+    Object.values(clusterMeta).forEach(({ center, radius, agentIds: ids }) => {
+      const n = ids.length;
+      const rowY = center[0] - radius - rowOffsetDeg;
+      ids.forEach((id, i) => {
+        const offsetX = (i - (n - 1) / 2) * spacingDeg;
+        agentGeoMap[id] = [rowY, center[1] + offsetX];
+      });
+    });
 
     agentIds.forEach((id, globalIdx) => {
       const agent = agents[id];
@@ -203,39 +324,8 @@ export default function MapView({ state, selectedAgent, onSelectAgent, mapCenter
       const locCenter = locGeo[locName];
       if (!locCenter) return;
 
-      const locGroup = byLocation[locName] || [id];
-      const idxInGroup = locGroup.indexOf(id);
-      const total = locGroup.length;
-
-      // Fan agents in a south-facing arc, collision-checked against other pins.
-      const zoomScale = Math.pow(2, 15 - currentZoom);
-      const orbitRadius = (0.002 + total * 0.0005) * zoomScale;
-      const arcWidth = Math.PI * 2 / 3;
-      const startAngle = -Math.PI / 2 - arcWidth / 2;
-      const step = total > 1 ? arcWidth / (total - 1) : 0;
-      const preferredAngle = total === 1 ? -Math.PI / 2 : startAngle + step * idxInGroup;
-
-      // Collision threshold: ~half a pin width in geo degrees
-      const collisionThresh = 0.0015 * zoomScale;
-      const otherPins = Object.entries(locGeo).filter(([n]) => n !== locName).map(([, c]) => c);
-      const agentThresh = 0.001 * zoomScale;
-
-      function geoAt(angle, r) {
-        return [locCenter[0] + r * Math.sin(angle), locCenter[1] + r * Math.cos(angle)];
-      }
-      function tooClose(pos) {
-        const hitPin = otherPins.some(p => Math.hypot(pos[0] - p[0], pos[1] - p[1]) < collisionThresh);
-        const hitAgent = placedAgentPositions.some(p => Math.hypot(pos[0] - p[0], pos[1] - p[1]) < agentThresh);
-        return hitPin || hitAgent;
-      }
-
-      let targetGeo = geoAt(preferredAngle, orbitRadius);
-      if (tooClose(targetGeo)) {
-        const candidates = Array.from({ length: 16 }, (_, i) => preferredAngle + (i + 1) * (Math.PI * 2 / 16));
-        const safe = candidates.find(a => !tooClose(geoAt(a, orbitRadius)));
-        targetGeo = geoAt(safe ?? preferredAngle, safe ? orbitRadius : orbitRadius * 1.8);
-      }
-      placedAgentPositions.push(targetGeo);
+      const targetGeo = agentGeoMap[id];
+      if (!targetGeo) return;
 
       const color = AGENT_COLORS[globalIdx % AGENT_COLORS.length];
       const name = agent.name || agent.persona?.name || 'Agent';
@@ -345,6 +435,28 @@ const LOC_TYPE_COLORS = {
   recreation: '#34d399',
   default: '#7c6aff',
 };
+
+function buildClusterIcon(totalAgents, label) {
+  const badge = totalAgents > 0 ? `<span class="loc-count-badge">${totalAgents}</span>` : '';
+  return L.divIcon({
+    className: '',
+    html: `
+      <div class="loc-marker">
+        <svg class="loc-pin" width="28" height="38" viewBox="0 0 36 48" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="18" cy="45" rx="6" ry="1.5" fill="rgba(0,0,0,0.5)"/>
+          <path d="M18 2 C9 2 2 9 2 18 C2 28 18 44 18 44 C18 44 34 28 34 18 C34 9 27 2 18 2 Z"
+                fill="#7c6aff" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+          <circle cx="18" cy="17" r="6" fill="rgba(255,255,255,0.9)"/>
+          <circle cx="18" cy="17" r="3" fill="#7c6aff"/>
+        </svg>
+        ${badge}
+        <div class="loc-card"><span class="loc-name" style="font-size:10px;opacity:0.7">${label}</span></div>
+      </div>
+    `,
+    iconSize: [28, 38],
+    iconAnchor: [14, 38],
+  });
+}
 
 function buildLocationIcon(name, loc, osmName, typeLabel) {
   const safeOsm = osmName ? osmName.replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
