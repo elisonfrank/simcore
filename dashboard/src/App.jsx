@@ -455,7 +455,7 @@ function App() {
         </div>
 
         {/* Event Injector */}
-        <div style={{ borderTop: '1px solid var(--border-subtle)', padding: 12 }}>
+        <div style={{ borderTop: '1px solid var(--border-subtle)', padding: 12, flexShrink: 0 }}>
           <EventInjector onInject={injectEvent} locations={locationNames} />
         </div>
       </div>
@@ -716,8 +716,8 @@ const styles = {
     position: 'absolute',
     top: 68,
     left: 16,
-    width: 250,
-    bottom: 80,
+    width: 300,
+    bottom: 16,
     ...glass,
     borderRadius: 'var(--radius-lg)',
     display: 'flex',

@@ -51,6 +51,11 @@ class SimulationEngine:
         self._running = False
         self._paused = False
         self._rng = random.Random(config.seed)
+        # True when scenario has at least one virtual location (enables POST action)
+        self._has_virtual = any(
+            loc.virtual or loc.type == 'virtual'
+            for loc in self.environment.locations.values()
+        )
 
         self._build_agents()
 
@@ -193,10 +198,9 @@ class SimulationEngine:
 
     async def _agent_turn(self, agent: Agent, tick: int) -> Any:
         """Run one agent's observation → decision → action cycle."""
-        observation = self._build_observation(agent, tick)
-        agent.observe(observation, tick, importance=0.3)
-
         lang = getattr(self.config, "language", "en")
+        observation = self._build_observation(agent, tick, lang)
+        agent.observe(observation, tick, importance=0.3)
         prompt = agent.build_prompt(observation, language=lang)
         persona_prompt = agent.persona.to_prompt()
         if lang != "en":
@@ -211,9 +215,19 @@ class SimulationEngine:
             )
             if not moved:
                 action.content = f"Tried to move to {action.target} but couldn't"
+        elif action.type == ActionType.POST:
+            if self._has_virtual and action.content:
+                # Broadcast post as a global event — visible to all agents next tick
+                description = f"{agent.name} postou nas redes sociais: {action.content}"
+                self.environment.log_event(tick, "social_post", description, location="")
+                for other in self.agents.values():
+                    if other.id != agent.id:
+                        other.observe(description, tick, importance=0.6)
+            else:
+                action = Action(type=ActionType.WAIT, reasoning="No social network available")
         elif action.type in (ActionType.SPEAK, ActionType.TRADE, ActionType.INTERACT):
             target = self._find_agent_by_name(action.target)
-            if not target or target.location != agent.location:
+            if not target or target.id == agent.id or target.location != agent.location:
                 action = Action(type=ActionType.WAIT, reasoning="Target not present at this location")
 
         agent.apply_action(action, tick)
@@ -222,6 +236,7 @@ class SimulationEngine:
         event_type = {
             ActionType.SPEAK: EventType.AGENT_SPEAK,
             ActionType.MOVE: EventType.AGENT_MOVE,
+            ActionType.POST: EventType.AGENT_POST,
         }.get(action.type, EventType.AGENT_ACTION)
 
         await self.event_bus.emit(SimEvent(
@@ -232,7 +247,13 @@ class SimulationEngine:
 
         return action
 
-    def _build_observation(self, agent: Agent, tick: int) -> str:
+    _SOCIAL_HINT = {
+        "pt": 'Redes sociais ativas. Use a ação "post" para publicar publicamente a qualquer momento — sua mensagem chegará a todos imediatamente.',
+        "es": 'Redes sociales activas. Usa la acción "post" para publicar públicamente en cualquier momento.',
+        "en": 'Social networks are active. Use the "post" action to publish publicly at any time — your message reaches everyone immediately.',
+    }
+
+    def _build_observation(self, agent: Agent, tick: int, lang: str = "en") -> str:
         """Build what an agent currently observes."""
         location = self.environment.get_location(agent.location)
         if not location:
@@ -243,7 +264,10 @@ class SimulationEngine:
             self.agents[aid].name for aid in nearby if aid in self.agents
         ]
         recent_events = self.environment.get_recent_events(tick, window=3)
-        event_descriptions = [e["description"] for e in recent_events if e.get("location") == agent.location]
+        event_descriptions = [
+            e["description"] for e in recent_events
+            if e.get("location") == agent.location or e.get("location") == ""
+        ]
 
         available_locations = self.environment.get_location_names()
         known_agents = [a.name for a in self.agents.values() if a.id != agent.id]
@@ -255,6 +279,7 @@ class SimulationEngine:
             known_agents=known_agents,
             recent_events=event_descriptions[-5:],
             global_context=str(self.environment.global_state) if self.environment.global_state else "",
+            social_network_hint=self._SOCIAL_HINT.get(lang, self._SOCIAL_HINT["en"]) if self._has_virtual else "",
         )
 
     async def _run_reflections(self, tick: int) -> None:

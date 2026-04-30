@@ -18,6 +18,7 @@ class EventType(Enum):
     AGENT_ACTION = "agent_action"
     AGENT_SPEAK = "agent_speak"
     AGENT_MOVE = "agent_move"
+    AGENT_POST = "agent_post"
     INTERACTION = "interaction"
     ENVIRONMENT_CHANGE = "environment_change"
     SCHEDULED_EVENT = "scheduled_event"

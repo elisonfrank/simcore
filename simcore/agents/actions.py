@@ -15,6 +15,7 @@ class ActionType(Enum):
     OBSERVE = "observe"
     WORK = "work"
     REST = "rest"
+    POST = "post"
     CUSTOM = "custom"
 
 
@@ -47,5 +48,7 @@ class Action:
                 return f"observes {self.target or 'surroundings'}"
             case ActionType.WAIT:
                 return "waits"
+            case ActionType.POST:
+                return f"posts online: {self.content}"
             case ActionType.CUSTOM:
                 return f"{self.content}"

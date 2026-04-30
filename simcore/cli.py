@@ -120,7 +120,7 @@ def run(config_path: str, dashboard: bool, headless: bool, output: str | None,
 
             console.print(f"  Dashboard: [link]http://localhost:{port}[/link]")
             console.print()
-            webbrowser.open(f"http://localhost:{port}")
+            # webbrowser.open(f"http://localhost:{port}")
 
             await asyncio.gather(
                 server.serve(),
