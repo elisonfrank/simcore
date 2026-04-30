@@ -162,8 +162,10 @@ function App() {
   }, []);
 
   // Show library when there's truly no simulation (never had state, or sim ended and post-mortem was dismissed)
+  // Auto-close library when a running simulation is detected (e.g. after page refresh)
   useEffect(() => {
-    if (!state && !showPostMortem) setShowLibrary(true);
+    if (state) { setShowLibrary(false); }
+    else if (!showPostMortem) setShowLibrary(true);
   }, [state]);
 
   // Capture initial state snapshot for post-mortem comparison
@@ -190,8 +192,28 @@ function App() {
     if (!mapCenter || !scenarioLocKeys || !locationLabel) return;
     const locs = state?.environment?.locations;
     if (!locs) return;
+    const locsArray = Object.entries(locs);
+    const withCity = locsArray.filter(([, loc]) => loc.city?.trim());
+    const withoutCity = locsArray.filter(([, loc]) => !loc.city?.trim());
+
     const citiesKey = Object.values(locs).map(l => l.city || '').join('|');
     const cacheKey = `simcore:osm:v10:${locationLabel}:${scenarioLocKeys}:${citiesKey}`;
+
+    const applyNationalCenter = (resolvedLocs) => {
+      if (withCity.length <= 1) return;
+      const coords = Object.values(resolvedLocs).map(r => r.coords).filter(Boolean);
+      if (coords.length < 2) return;
+      const avgLat = coords.reduce((s, c) => s + c[0], 0) / coords.length;
+      const avgLng = coords.reduce((s, c) => s + c[1], 0) / coords.length;
+      const spanLat = Math.max(...coords.map(c => c[0])) - Math.min(...coords.map(c => c[0]));
+      const spanLng = Math.max(...coords.map(c => c[1])) - Math.min(...coords.map(c => c[1]));
+      if (spanLat > 2 || spanLng > 2) {
+        // Only update if not already near the centroid (avoids infinite loop)
+        if (!mapCenter || Math.hypot(avgLat - mapCenter[0], avgLng - mapCenter[1]) > 0.5) {
+          setMapCenter([avgLat, avgLng]);
+        }
+      }
+    };
 
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
@@ -199,6 +221,7 @@ function App() {
         const parsed = JSON.parse(cached);
         if (parsed.locations) {
           setRealLocations(parsed.locations);
+          applyNationalCenter(parsed.locations);
           return;
         }
       } catch {}
@@ -209,10 +232,6 @@ function App() {
     inflightResolveRef.current = cacheKey;
 
     setResolvingLocations(true);
-
-    const locsArray = Object.entries(locs);
-    const withCity = locsArray.filter(([, loc]) => loc.city?.trim());
-    const withoutCity = locsArray.filter(([, loc]) => !loc.city?.trim());
 
     const cityResolutions = withCity.map(async ([name, loc]) => {
       const coords = await geocodeLocation(name, loc.city);
@@ -236,9 +255,18 @@ function App() {
           localStorage.setItem(cacheKey, JSON.stringify(payload));
           setRealLocations(resolved);
 
-          // Only re-center when there are NO city-geocoded locations.
-          // When city locations exist, MapView's fitBounds handles navigation.
-          if (urbanCenter && withCity.length === 0) {
+          if (withCity.length > 1) {
+            // Multi-city scenario: re-center map to centroid of resolved cities
+            const coords = Object.values(resolved).map(r => r.coords).filter(Boolean);
+            if (coords.length > 1) {
+              const avgLat = coords.reduce((s, c) => s + c[0], 0) / coords.length;
+              const avgLng = coords.reduce((s, c) => s + c[1], 0) / coords.length;
+              const spanLat = Math.max(...coords.map(c => c[0])) - Math.min(...coords.map(c => c[0]));
+              const spanLng = Math.max(...coords.map(c => c[1])) - Math.min(...coords.map(c => c[1]));
+              if (spanLat > 2 || spanLng > 2) setMapCenter([avgLat, avgLng]);
+            }
+          } else if (urbanCenter && withCity.length === 0) {
+            // Local scenario: re-center only when no city-geocoded locations
             const distKm = Math.hypot(
               (urbanCenter[0] - mapCenter[0]) * 111,
               (urbanCenter[1] - mapCenter[1]) * 111 * Math.cos(urbanCenter[0] * Math.PI / 180)

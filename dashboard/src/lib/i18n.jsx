@@ -76,6 +76,7 @@ const DICTIONARIES = {
     'action.tradesWith': 'trades with {target}: {content}',
     'action.interactsWith': 'interacts with {target}',
     'action.works': 'works: {content}',
+    'action.worksGeneric': 'works',
     'action.observes': 'observes the surroundings',
     'action.does': 'does: {content}',
     'action.xSaysTo': '{source} says to {target}: "{content}"',
@@ -266,6 +267,7 @@ const DICTIONARIES = {
     'action.tradesWith': 'negocia com {target}: {content}',
     'action.interactsWith': 'interage com {target}',
     'action.works': 'trabalha: {content}',
+    'action.worksGeneric': 'trabalha',
     'action.observes': 'observa o entorno',
     'action.does': 'faz: {content}',
     'action.xSaysTo': '{source} diz para {target}: "{content}"',
@@ -463,6 +465,7 @@ export function translateAction(str, t, translateName = (n) => n) {
   if ((m = str.match(/^trades with (.+?): (.+)$/))) return t('action.tradesWith', { target: n(m[1]), content: m[2] });
   if ((m = str.match(/^interacts with (.+)$/))) return t('action.interactsWith', { target: n(m[1]) });
   if ((m = str.match(/^works[:\s]+(.+)$/i))) return t('action.works', { content: m[1] });
+  if (/^works[:\s]*$/i.test(str)) return t('action.worksGeneric');
   if (/^observes\b/i.test(str)) return t('action.observes');
   if ((m = str.match(/^does[:\s]+(.+)$/i))) return t('action.does', { content: m[1] });
   // Source-prefixed variants (from interaction descriptions)
